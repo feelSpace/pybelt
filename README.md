@@ -1,5 +1,19 @@
-# FSLib-Python
-An Python library to control the feelSpace naviBelt from your application.
+# pyBelt
+
+PyBelt is a Python library to control the feelSpace naviBelt from your application. The feelSpace naviBelt is a device that provides tactile feedback using vibration motors located in a belt. The naviBelt can be controlled by an application via Bluetooth Low-Energy or USB.
+
+The naviBelt can be used in various domains, for instance:
+* navigation applications, 
+* VR, 
+* simulation, 
+* research experiments that require tactile feedback,
+* outdoor and video-games,
+* applications that require tactile feedback to improve focus or attention.
+
+## Documentation
+
+* [pyBelt documentation](docs/README.md)
+* Developer page (coming soon)
 
 ## About feelSpace
 
