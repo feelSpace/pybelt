@@ -20,5 +20,4 @@ setuptools.setup(
     ],
     python_requires='>=3.3',
     install_requires=["pyserial", "bleak", "asyncio", "queue", "sys", "threading", "time", "logging", "typing"],
-
 )
