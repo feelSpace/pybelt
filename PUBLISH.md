@@ -29,6 +29,18 @@ $ twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
 To be checked on: https://test.pypi.org/
 
+### Check install
+
+```
+$ pip install --index-url https://test.pypi.org/simple/ pybelt
+```
+
+Can be uninstalled using:
+
+```
+$ pip uninstall pybelt
+```
+
 ### Upload on PyPI
 
 ```

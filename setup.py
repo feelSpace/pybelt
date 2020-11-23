@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pybelt",
-    version="0.0.1",
+    version="0.0.3",
     author="feelSpace GmbH",
     author_email="dev@feelspace.de",
     description="An Python library to control the feelSpace naviBelt from your application",
@@ -19,5 +19,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.3',
-    install_requires=["pyserial", "bleak", "asyncio", "queue", "sys", "threading", "time", "logging", "typing"],
+    install_requires=["pyserial", "bleak"],
 )
