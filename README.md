@@ -7,7 +7,7 @@ An Python library to control the feelSpace naviBelt from your application.
 
 ## Copyright and license notice
 
-Copyright 2017-2020, feelSpace GmbH.
+Copyright 2020, feelSpace GmbH.
 
 Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
