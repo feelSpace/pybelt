@@ -1,7 +1,8 @@
 # Copyright 2020, feelSpace GmbH, <info@feelspace.de>
-
+from pybelt.belt_scanner import BeltScanner
 from pybelt._communication_interface import *
 from pybelt._gatt_profile import *
+from typing import List
 
 WAIT_ACK_TIMEOUT_SEC = 1  # Default timeout for waiting acknowledgment
 DEBUG_MESSAGE_COMPLETION_TIMEOUT = 0.5  # Timeout for waiting the completion of a debug message
@@ -56,97 +57,142 @@ class BeltController(BeltCommunicationDelegate):
         self._debug_message_buffer = ""
         self._debug_message_last_received = 0
 
-    def connect_serial(self, port):
-        """
-        Connects a belt via serial port.
+    def connect(self, belt):
+        """ Connects a belt via Bluetooth LE or USB.
 
-        :param str port: The serial port to be used, e.g. 'COM1' on Windows or '/dev/ttyUSB0' on Linux.
+        :param Union[str, bleak.backends.device.BLEDevice] belt: The interface to use for communicating with the belt.
+            For a Bluetooth LE connection a `BLEDevice` must be passed. For USB connection, the name of the serial port
+            must passed, e.g. 'COM1' on Windows or '/dev/ttyUSB0' on Linux.
+        :raises ValueError: When the type of interface is unsupported.
         """
+        # Check belt interface
+        if isinstance(belt, (str, BLEDevice)):
+            raise ValueError("Unsupported type for the belt interface.")
         # Close previous connection
         self._close_connection()
         # Set state as CONNECTING
-        self._connection_state = BeltConnectionState.CONNECTING
-        try:
-            self._delegate.on_connection_state_changed(self._connection_state)
-        except:
-            pass
+        self._set_connection_state(BeltConnectionState.CONNECTING)
         # Open connection
-        self._communication_interface = SerialPortInterface(self)
         try:
-            self._communication_interface.open(port)
+            if isinstance(belt, str):
+                # USB connection
+                self._communication_interface = SerialPortInterface(self)
+                self._communication_interface.open(belt)
+            else:
+                # Bluetooth connection
+                self._communication_interface = BleInterface(self)
+                self._communication_interface.open(belt)
         except:
             self._close_connection()
-            self._connection_state = BeltConnectionState.DISCONNECTED
-            try:
-                self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-                                                           BeltConnectionError("Connection failed."))
-            except:
-                pass
-            return
-
-        # Handshake
-        if not self._handshake():
-            # Handshake failed
-            self._close_connection()
-            self._connection_state = BeltConnectionState.DISCONNECTED
-            try:
-                self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-                                                           BeltConnectionError("Handshake failed."))
-            except:
-                pass
-            return
-
-        # Set state and inform delegate
-        self._connection_state = BeltConnectionState.CONNECTED
-        try:
-            self._delegate.on_connection_state_changed(self._connection_state)
-        except:
-            pass
-
-    def connect_ble(self, device=None):
-        """Connects a belt via BLE.
-
-        :param bleak.backends.device.BLEDevice device:
-            The device to connect to, or 'None' to scan for belt.
-        """
-        # Close previous connection
-        self._close_connection()
-        # Set state as CONNECTING
-        self._connection_state = BeltConnectionState.CONNECTING
-        try:
-            self._delegate.on_connection_state_changed(self._connection_state)
-        except:
-            pass
-        # Open connection
-        self._communication_interface = BleInterface(self)
-        try:
-            self._communication_interface.open(device=device)
-        except:
-            self._close_connection()
-            self._connection_state = BeltConnectionState.DISCONNECTED
-            try:
-                self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-                                                           BeltConnectionError("Connection failed."))
-            except:
-                pass
+            self._set_connection_state(
+                BeltConnectionState.DISCONNECTED,
+                BeltConnectionError("Connection failed."))
             return
         # Handshake
         if not self._handshake():
             # Handshake failed
             self._close_connection()
-            self._connection_state = BeltConnectionState.DISCONNECTED
-            try:
-                self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-                                                           BeltConnectionError("Handshake failed."))
-            except:
-                pass
+            self._set_connection_state(
+                BeltConnectionState.DISCONNECTED,
+                BeltConnectionError("Handshake failed."))
             return
+        # Keep last connected interface
+        self._last_connected_interface = belt
         # Set state and inform delegate
-        self._connection_state = BeltConnectionState.CONNECTED
-        try:
-            self._delegate.on_connection_state_changed(self._connection_state)
-        except:
-            pass
+        self._set_connection_state(BeltConnectionState.CONNECTED)
+
+# TODO TBR
+    # def connect_serial(self, port):
+    #     """
+    #     Connects a belt via serial port.
+    #
+    #     :param str port: The serial port to be used, e.g. 'COM1' on Windows or '/dev/ttyUSB0' on Linux.
+    #     """
+    #     # Close previous connection
+    #     self._close_connection()
+    #     # Set state as CONNECTING
+    #     self._connection_state = BeltConnectionState.CONNECTING
+    #     try:
+    #         self._delegate.on_connection_state_changed(self._connection_state)
+    #     except:
+    #         pass
+    #     # Open connection
+    #     self._communication_interface = SerialPortInterface(self)
+    #     try:
+    #         self._communication_interface.open(port)
+    #     except:
+    #         self._close_connection()
+    #         self._connection_state = BeltConnectionState.DISCONNECTED
+    #         try:
+    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
+    #                                                        BeltConnectionError("Connection failed."))
+    #         except:
+    #             pass
+    #         return
+    #
+    #     # Handshake
+    #     if not self._handshake():
+    #         # Handshake failed
+    #         self._close_connection()
+    #         self._connection_state = BeltConnectionState.DISCONNECTED
+    #         try:
+    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
+    #                                                        BeltConnectionError("Handshake failed."))
+    #         except:
+    #             pass
+    #         return
+    #
+    #     # Set state and inform delegate
+    #     self._connection_state = BeltConnectionState.CONNECTED
+    #     try:
+    #         self._delegate.on_connection_state_changed(self._connection_state)
+    #     except:
+    #         pass
+    #
+    # def connect_ble(self, device=None):
+    #     """Connects a belt via BLE.
+    #
+    #     :param bleak.backends.device.BLEDevice device:
+    #         The device to connect to, or 'None' to scan for belt.
+    #     """
+    #     # Close previous connection
+    #     self._close_connection()
+    #     # Set state as CONNECTING
+    #     self._connection_state = BeltConnectionState.CONNECTING
+    #     try:
+    #         self._delegate.on_connection_state_changed(self._connection_state)
+    #     except:
+    #         pass
+    #     # Open connection
+    #     self._communication_interface = BleInterface(self)
+    #     try:
+    #         self._communication_interface.open(device=device)
+    #     except:
+    #         self._close_connection()
+    #         self._connection_state = BeltConnectionState.DISCONNECTED
+    #         try:
+    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
+    #                                                        BeltConnectionError("Connection failed."))
+    #         except:
+    #             pass
+    #         return
+    #     # Handshake
+    #     if not self._handshake():
+    #         # Handshake failed
+    #         self._close_connection()
+    #         self._connection_state = BeltConnectionState.DISCONNECTED
+    #         try:
+    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
+    #                                                        BeltConnectionError("Handshake failed."))
+    #         except:
+    #             pass
+    #         return
+    #     # Set state and inform delegate
+    #     self._connection_state = BeltConnectionState.CONNECTED
+    #     try:
+    #         self._delegate.on_connection_state_changed(self._connection_state)
+    #     except:
+    #         pass
 
     def reconnect(self):
         """
@@ -427,6 +473,19 @@ class BeltController(BeltCommunicationDelegate):
 
     # --------------------------------------------------------------- #
     # Private methods
+
+    def _set_connection_state(self, state, error=None, notify=True):
+        """Sets the connection state.
+        :param int state: The state to be set.
+        :param Exception error: The error to notify if any.
+        :param bool notify: `True` to notify the delegate.
+        """
+        self._connection_state = state
+        if notify:
+            try:
+                self._delegate.on_connection_state_changed(state, error=error)
+            except:
+                pass
 
     def _close_connection(self):
         """Closes the connection and clear cached parameter values.

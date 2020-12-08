@@ -5,14 +5,13 @@ import sys
 import threading
 import time
 import logging
-from typing import Union
 
 import bleak
 import serial
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
 
-from pyBelt._gatt_profile import *
+from pybelt._gatt_profile import *
 
 SERIAL_BAUDRATE = 115200
 # Baudrate for serial connection
