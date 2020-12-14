@@ -220,12 +220,7 @@ class BeltController(BeltCommunicationDelegate):
         if (self._connection_state == BeltConnectionState.DISCONNECTING or
                 self._connection_state == BeltConnectionState.DISCONNECTED):
             return
-        self._connection_state = BeltConnectionState.DISCONNECTING
-        try:
-            self._delegate.on_connection_state_changed(self._connection_state)
-        except:
-            pass
-        # Close connection
+        self._set_connection_state(BeltConnectionState.DISCONNECTING)
         self._close_connection()
 
     def get_connection_state(self) -> int:
@@ -487,6 +482,8 @@ class BeltController(BeltCommunicationDelegate):
         :param Exception error: The error to notify if any.
         :param bool notify: `True` to notify the delegate.
         """
+        if self._connection_state == state:
+            return
         self._connection_state = state
         if notify:
             try:
@@ -772,16 +769,13 @@ class BeltController(BeltCommunicationDelegate):
         pass
 
     def on_connection_closed(self, expected=True):
-        if self._connection_state == BeltConnectionState.DISCONNECTED:
-            return
-        self._connection_state = BeltConnectionState.DISCONNECTED
         self.logger.debug("BeltController: Connection closed.")
-        # Inform delegate
         if expected or self._connection_state == BeltConnectionState.DISCONNECTING:
-            self._delegate.on_connection_state_changed(self._connection_state)
+            self._set_connection_state(BeltConnectionState.DISCONNECTED)
         else:
-            self._delegate.on_connection_state_changed(
-                self._connection_state, BeltConnectionError("Connection lost."))
+            self._set_connection_state(
+                BeltConnectionState.DISCONNECTED,
+                BeltConnectionError("Connection lost."))
 
     def on_gatt_char_notified(self, gatt_char, data):
 
