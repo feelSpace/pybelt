@@ -17,7 +17,7 @@ class BeltController(BeltCommunicationDelegate):
     # --------------------------------------------------------------- #
     # Public methods
 
-    def __init__(self, delegate):
+    def __init__(self, delegate=None):
         """Initializes the belt controller.
 
         Parameters
@@ -66,7 +66,7 @@ class BeltController(BeltCommunicationDelegate):
         :raises ValueError: When the type of interface is unsupported.
         """
         # Check belt interface
-        if isinstance(belt, (str, BLEDevice)):
+        if not isinstance(belt, (str, BLEDevice)):
             raise ValueError("Unsupported type for the belt interface.")
         # Close previous connection
         self._close_connection()
@@ -228,8 +228,9 @@ class BeltController(BeltCommunicationDelegate):
         # Close connection
         self._close_connection()
 
-    def get_connection_state(self):
+    def get_connection_state(self) -> int:
         """Returns the connection state.
+        :return: The connection state.
         """
         return self._connection_state
 
@@ -244,6 +245,12 @@ class BeltController(BeltCommunicationDelegate):
         :return: The firmware version of the connected belt, or None if no belt is connected.
         """
         return self._firmware_version
+
+    def get_default_intensity(self) -> int:
+        """Returns the default vibration intensity of the connected belt.
+        :return: The default vibration intensity of the connected belt, or None if no belt is connected.
+        """
+        return self._default_intensity
 
     def write_gatt(self, gatt_char, data, ack_char=None, ack_data=None, timeout_sec=WAIT_ACK_TIMEOUT_SEC) -> int:
         """
