@@ -101,99 +101,6 @@ class BeltController(BeltCommunicationDelegate):
         # Set state and inform delegate
         self._set_connection_state(BeltConnectionState.CONNECTED)
 
-# TODO TBR
-    # def connect_serial(self, port):
-    #     """
-    #     Connects a belt via serial port.
-    #
-    #     :param str port: The serial port to be used, e.g. 'COM1' on Windows or '/dev/ttyUSB0' on Linux.
-    #     """
-    #     # Close previous connection
-    #     self._close_connection()
-    #     # Set state as CONNECTING
-    #     self._connection_state = BeltConnectionState.CONNECTING
-    #     try:
-    #         self._delegate.on_connection_state_changed(self._connection_state)
-    #     except:
-    #         pass
-    #     # Open connection
-    #     self._communication_interface = SerialPortInterface(self)
-    #     try:
-    #         self._communication_interface.open(port)
-    #     except:
-    #         self._close_connection()
-    #         self._connection_state = BeltConnectionState.DISCONNECTED
-    #         try:
-    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-    #                                                        BeltConnectionError("Connection failed."))
-    #         except:
-    #             pass
-    #         return
-    #
-    #     # Handshake
-    #     if not self._handshake():
-    #         # Handshake failed
-    #         self._close_connection()
-    #         self._connection_state = BeltConnectionState.DISCONNECTED
-    #         try:
-    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-    #                                                        BeltConnectionError("Handshake failed."))
-    #         except:
-    #             pass
-    #         return
-    #
-    #     # Set state and inform delegate
-    #     self._connection_state = BeltConnectionState.CONNECTED
-    #     try:
-    #         self._delegate.on_connection_state_changed(self._connection_state)
-    #     except:
-    #         pass
-    #
-    # def connect_ble(self, device=None):
-    #     """Connects a belt via BLE.
-    #
-    #     :param bleak.backends.device.BLEDevice device:
-    #         The device to connect to, or 'None' to scan for belt.
-    #     """
-    #     # Close previous connection
-    #     self._close_connection()
-    #     # Set state as CONNECTING
-    #     self._connection_state = BeltConnectionState.CONNECTING
-    #     try:
-    #         self._delegate.on_connection_state_changed(self._connection_state)
-    #     except:
-    #         pass
-    #     # Open connection
-    #     self._communication_interface = BleInterface(self)
-    #     try:
-    #         self._communication_interface.open(device=device)
-    #     except:
-    #         self._close_connection()
-    #         self._connection_state = BeltConnectionState.DISCONNECTED
-    #         try:
-    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-    #                                                        BeltConnectionError("Connection failed."))
-    #         except:
-    #             pass
-    #         return
-    #     # Handshake
-    #     if not self._handshake():
-    #         # Handshake failed
-    #         self._close_connection()
-    #         self._connection_state = BeltConnectionState.DISCONNECTED
-    #         try:
-    #             self._delegate.on_connection_state_changed(BeltConnectionState.DISCONNECTED,
-    #                                                        BeltConnectionError("Handshake failed."))
-    #         except:
-    #             pass
-    #         return
-    #     # Set state and inform delegate
-    #     self._connection_state = BeltConnectionState.CONNECTED
-    #     try:
-    #         self._delegate.on_connection_state_changed(self._connection_state)
-    #     except:
-    #         pass
-
     def reconnect(self):
         """
         Reconnects the last device.
@@ -205,12 +112,7 @@ class BeltController(BeltCommunicationDelegate):
             self.logger.error("BeltController: No previous connection to reconnect!")
             return
         try:
-            if isinstance(self._last_connected_interface, SerialPortInterface):
-                self.connect_serial(self._last_connected_interface.get_port())
-            elif isinstance(self._last_connected_interface, BleInterface):
-                self.connect_ble(self._last_connected_interface.get_device())
-            else:
-                self.logger.error("BeltController: Unknown interface for the reconnection.")
+            self.connect(self._last_connected_interface.get_port())
         except:
             self.logger.exception("BeltController: Error when reconnecting.")
 
@@ -235,16 +137,35 @@ class BeltController(BeltCommunicationDelegate):
         """
         return self._belt_mode
 
-    def set_belt_mode(self, mode) -> bool:
+    def set_belt_mode(self, mode, wait_ack=False) -> bool:
         """ Sets the mode of the belt.
-        This operation is asynchronous and the delegate will be informed of the mode change via ´on_belt_mode_changed´.
+        This operation is asynchronous except if the parameter ´wait_ack´ is True.
+        The delegate will be informed of the mode change via ´on_belt_mode_changed´.
 
         :param int mode: The mode to be set. See ´BeltMode´ for a list of the modes.
+        :param bool wait_ack: True to wait for mode change acknowledgment.
         :return: True if the request has been sent, False if no belt is connected.
         :raise ValueError: If the mode value is not valid.
+        :raise TimeoutError: If the acknowledgment is waited and the timeout period is reached.
         """
-        # TODO TBC
-        self.logger.warning("Not yet implemented!")
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot set the belt mode when not connected.")
+            return False
+        if mode < 0 or mode > 6:
+            raise ValueError("Belt mode value out of range.")
+        if wait_ack:
+            write_result = self.write_gatt(
+                navibelt_param_request_char,
+                bytes([0x01, 0x81, mode]),
+                navibelt_param_notification_char,
+                b'\x01\x01')
+        else:
+            write_result = self.write_gatt(
+                navibelt_param_request_char,
+                bytes([0x01, 0x81, mode]))
+        if write_result == 2:
+            raise TimeoutError("Timeout period reached when changing the belt mode.")
+        return write_result == 0
 
     def get_firmware_version(self) -> int:
         """Returns the firmware version of the connected belt.
@@ -399,6 +320,7 @@ class BeltController(BeltCommunicationDelegate):
             return False
         return self._communication_interface.set_gatt_notifications(navibelt_battery_status_char, enabled)
 
+    # TODO To be moved in diagnosis app
     def set_debug_notifications(self, enabled) -> bool:
         """
         Sets the state of debug notifications.
@@ -560,6 +482,7 @@ class BeltController(BeltCommunicationDelegate):
             self.logger.error("BeltController: Failed to register to power-status notifications.")
             return False
 
+        # TODO To be moved in diagnosis app
         # Register to debug output
         self.logger.debug("BeltController: Register to debug output.")
         if not self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, True):
@@ -615,23 +538,24 @@ class BeltController(BeltCommunicationDelegate):
         except:
             pass
 
-    def _notify_belt_mode(self, belt_mode):
-        """
-        Sets the belt mode member variable and notifies the delegate of a belt mode change.
-
-        :param int belt_mode: The belt mode.
-        """
-        if (self._connection_state == BeltConnectionState.DISCONNECTED or
-                self._connection_state == BeltConnectionState.DISCONNECTING):
-            return
-        if belt_mode < 0 or belt_mode > 6:
-            self.logger.error("BeltController: Illegal mode notification argument.")
-            return
-        self._belt_mode = belt_mode
-        try:
-            self._delegate.on_belt_mode_changed(belt_mode)
-        except:
-            pass
+    # TODO To be removed
+    # def _notify_belt_mode(self, belt_mode):
+    #     """
+    #     Sets the belt mode member variable and notifies the delegate of a belt mode change.
+    #
+    #     :param int belt_mode: The belt mode.
+    #     """
+    #     if (self._connection_state == BeltConnectionState.DISCONNECTED or
+    #             self._connection_state == BeltConnectionState.DISCONNECTING):
+    #         return
+    #     if belt_mode < 0 or belt_mode > 6:
+    #         self.logger.error("BeltController: Illegal mode notification argument.")
+    #         return
+    #     self._belt_mode = belt_mode
+    #     try:
+    #         self._delegate.on_belt_mode_changed(belt_mode)
+    #     except:
+    #         pass
 
     def _notify_default_intensity(self, intensity):
         """
@@ -743,6 +667,7 @@ class BeltController(BeltCommunicationDelegate):
 
     def on_gatt_char_notified(self, gatt_char, data):
 
+        # TODO To be moved in diagnosis app using system handler
         # Process packet
         try:
             self.logger.log(5, "BeltController: "+gatt_char.uuid[4:8]+" <- "+bytes_to_hexstr(data))
@@ -782,7 +707,7 @@ class BeltController(BeltCommunicationDelegate):
         # Belt mode change
         if gatt_char == navibelt_param_notification_char:
             if len(data) >= 3 and data[0] == 0x01 and data[1] == 0x01:
-                self._notify_belt_mode(data[2])
+                self._set_belt_mode(data[2])
 
         # Default intensity
         if gatt_char == navibelt_param_notification_char:
@@ -814,26 +739,13 @@ class BeltController(BeltCommunicationDelegate):
                     # Compass accuracy signal state
                     self._notify_compass_accuracy_signal_state(data[2])
 
-        # Self-test state notification
-        if gatt_char == navibelt_debug_output_char:
-            if len(data) >= 4 and data[0] == 0x02:
-                if data[1] != 0x00:
-                    # Self-test started
-                    self.logger.info("BeltController: Belt self-test started.")
-                else:
-                    # Self-test completed
-                    if data[3] == 0:
-                        self.logger.info("BeltController: Belt self-test completed with no error.")
-                    else:
-                        self.logger.error("BeltController: Belt self-test completed with " +
-                                          repr(data[3]) + " error(s)!")
-
         # Error notification
         if gatt_char == navibelt_debug_output_char:
             if len(data) >= 5 and data[0] == 0xA0:
                 error_id = int.from_bytes(bytes(data[1:5]), byteorder='little', signed=False)
                 self.logger.error("BeltController: Belt error " + hex(error_id) + " !")
 
+        # TODO To be moved in diagnosis app using system handler
         # Debug message
         if len(self._debug_message_buffer) > 0 and \
                 time.perf_counter()-self._debug_message_last_received > DEBUG_MESSAGE_COMPLETION_TIMEOUT:
