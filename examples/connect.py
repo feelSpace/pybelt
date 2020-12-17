@@ -32,7 +32,7 @@ def interactive_belt_connect(belt_controller):
             belt_selection = input("[1-{}]".format(len(belts)))
             try:
                 belt_selection_int = int(belt_selection)
-            except:
+            except ValueError:
                 print("Unrecognized input.")
                 return belt_controller
             print("Connect the belt.")
@@ -62,7 +62,7 @@ def interactive_belt_connect(belt_controller):
             belt_selection = input("[1-{}]".format(len(ports)))
             try:
                 belt_selection_int = int(belt_selection)
-            except:
+            except ValueError:
                 print("Unrecognized input.")
                 return belt_controller
             print("Connect the belt.")

@@ -235,6 +235,17 @@ class BeltController(BeltCommunicationDelegate):
         """
         return self._belt_mode
 
+    def set_belt_mode(self, mode) -> bool:
+        """ Sets the mode of the belt.
+        This operation is asynchronous and the delegate will be informed of the mode change via ´on_belt_mode_changed´.
+
+        :param int mode: The mode to be set. See ´BeltMode´ for a list of the modes.
+        :return: True if the request has been sent, False if no belt is connected.
+        :raise ValueError: If the mode value is not valid.
+        """
+        # TODO TBC
+        self.logger.warning("Not yet implemented!")
+
     def get_firmware_version(self) -> int:
         """Returns the firmware version of the connected belt.
         :return: The firmware version of the connected belt, or None if no belt is connected.
@@ -366,24 +377,6 @@ class BeltController(BeltCommunicationDelegate):
         """
         self._system_handlers.remove(handler)
 
-    def start_self_test(self, test_mask=0b00000001) -> bool:
-        """
-        Starts the self-test procedure of the belt.
-        :param int test_mask: The test mask. 1: BNO, 2: LSM, 4: Flash, 8: GPS, 16: Barometer.
-        :return bool: 'True' if the self-test has been started.
-        """
-        if self._connection_state != BeltConnectionState.CONNECTED:
-            self.logger.error("BeltController: No connection to start self-test.")
-            return False
-        if test_mask < 0 or test_mask > 0xff:
-            self.logger.error("BeltController: Illegal mask value for self-test.")
-            return False
-        if (self.write_gatt(navibelt_debug_input_char,
-                            bytes([0x02, test_mask]),
-                            navibelt_debug_output_char,
-                            bytes([0x02, 0x01, test_mask])) != 0):
-            self.logger.error("BeltController: Failed to start self-test.")
-
     def set_orientation_notifications(self, enabled) -> bool:
         """
         Sets the state of orientation notifications.
@@ -416,35 +409,6 @@ class BeltController(BeltCommunicationDelegate):
         if self._connection_state == BeltConnectionState.DISCONNECTED:
             return False
         return self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, enabled)
-
-    def factory_reset(self, parameters=True, ble=False, sensor=False) -> bool:
-        """
-        Resets the belt to its factory defaults. The belt will disconnected and an attempt to reconnect will be made.
-
-        :param parameters: 'True' to reset the parameters.
-        :param ble: 'True' to reset BLE parameters.
-        :param sensor: 'True' to reset the orientations sensor.
-        :return: 'True' if the request has been sent successfully.
-        """
-        if self._connection_state != BeltConnectionState.CONNECTED:
-            return False
-        if self.write_gatt(
-            navibelt_param_request_char,
-            bytes([
-                0x12,
-                (0x01 if parameters else 0x00),
-                (0x01 if ble else 0x00),
-                (0x01 if sensor else 0x00)])) != 0:
-            return False
-        self.logger.debug("BeltController: Reset command sent.")
-        if isinstance(self._communication_interface, SerialPortInterface):
-            self._communication_interface.wait_disconnection(1)
-        else:
-            self._communication_interface.close()
-        time.sleep(1)
-        self.logger.debug("BeltController: Reconnection attempt.")
-        self.reconnect()
-        return True
 
     def rename(self, suffix) -> bool:
         """

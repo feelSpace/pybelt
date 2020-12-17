@@ -73,9 +73,17 @@ def main():
         action = input()
         try:
             action_int = int(action)
-            # TODO
-
-        except:
+            if action_int == 1:
+                belt_controller.set_belt_mode(BeltMode.WAIT)
+            elif action_int == 2:
+                belt_controller.set_belt_mode(BeltMode.COMPASS)
+            elif action_int == 3:
+                belt_controller.set_belt_mode(BeltMode.APP_MODE)
+            elif action_int == 4:
+                belt_controller.set_belt_mode(BeltMode.PAUSE)
+            elif action_int == 5:
+                belt_controller.set_belt_mode(BeltMode.CROSSING)
+        except ValueError:
             if action.lower() == "q" or action.lower() == "quit":
                 belt_controller.disconnect_belt()
             else:
