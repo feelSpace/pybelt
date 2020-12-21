@@ -83,7 +83,7 @@ class BeltCommunicationDelegate:
         """
         Called when a GATT notification has been received or a characteristic has been read.
 
-        :param GattCharacteristic gatt_char:
+        :param GattCharacteristic gatt_char: The characteristic that received the data.
         :param bytes data: The data received.
         """
         pass

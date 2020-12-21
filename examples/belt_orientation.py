@@ -2,18 +2,25 @@
 # encoding: utf-8
 import logging
 import sys
+import time
+from threading import Event
 
 import pybelt
 from examples.connect import interactive_belt_connect
 
 from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate, BeltMode
 
+# Event to stop the script
+button_pressed_event = Event()
+
 
 class Delegate(BeltControllerDelegate):
 
-    def dummy(self):
-        # TODO
-        pass
+    def on_belt_orientation_notified(self, heading, is_orientation_accurate, extra):
+        print("\rBelt heading {}°, accurate: {}            ".format(heading, is_orientation_accurate), end="")
+
+    def on_belt_button_pressed(self, button_id, previous_mode, new_mode):
+        button_pressed_event.set()
 
 
 def main():
@@ -35,23 +42,13 @@ def main():
         print("Connection failed.")
         return 0
 
-    while belt_controller.get_connection_state() == BeltConnectionState.CONNECTED:
-        print("Q to quit.")
-        action = input()
-        try:
-            action_int = int(action)
-            if action_int == 1:
-                # TODO
-                pass
-            elif action_int == 2:
-                # TODO
-                pass
-        except ValueError:
-            if action.lower() == "q" or action.lower() == "quit":
-                belt_controller.disconnect_belt()
-            else:
-                print("Unrecognized input.")
+    # Start orientation notification (should already be started during handshake)
+    belt_controller.set_orientation_notifications(True)
 
+    print("Press a button on the belt to quit.")
+    while belt_controller.get_connection_state() == BeltConnectionState.CONNECTED and not button_pressed_event.is_set():
+        button_pressed_event.wait(timeout=0.2)
+    belt_controller.disconnect_belt()
     return 0
 
 

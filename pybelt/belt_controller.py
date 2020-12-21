@@ -623,6 +623,76 @@ class BeltController(BeltCommunicationDelegate):
         except:
             pass
 
+    def _notify_belt_orientation(self, packet):
+        """Notifies the belt orientation to the delegate.
+
+        :param bytes packet: The raw orientation data.
+        """
+        if (self._connection_state == BeltConnectionState.DISCONNECTED or
+                self._connection_state == BeltConnectionState.DISCONNECTING):
+            return
+        sensor_id = int.from_bytes(
+            bytes(packet[0:1]),
+            byteorder='little',
+            signed=False)
+        belt_heading = int.from_bytes(
+            bytes(packet[1:3]),
+            byteorder='little',
+            signed=False)
+        box_heading = int.from_bytes(
+            bytes(packet[3:5]),
+            byteorder='little',
+            signed=False)
+        box_roll = int.from_bytes(
+            bytes(packet[5:7]),
+            byteorder='little',
+            signed=False)
+        box_pitch = int.from_bytes(
+            bytes(packet[7:9]),
+            byteorder='little',
+            signed=False)
+        accuracy = int.from_bytes(
+            bytes(packet[9:11]),
+            byteorder='little',
+            signed=False)
+        mag_stat = int.from_bytes(
+            bytes(packet[11:12]),
+            byteorder='little',
+            signed=True)
+        acc_stat = int.from_bytes(
+            bytes(packet[12:13]),
+            byteorder='little',
+            signed=True)
+        gyr_stat = int.from_bytes(
+            bytes(packet[13:14]),
+            byteorder='little',
+            signed=True)
+        fus_stat = int.from_bytes(
+            bytes(packet[14:15]),
+            byteorder='little',
+            signed=True)
+        is_orientation_accurate = (int.from_bytes(
+            bytes(packet[15:16]),
+            byteorder='little',
+            signed=False)) == 0
+        try:
+            self._delegate.on_belt_orientation_notified(
+                belt_heading,
+                is_orientation_accurate,
+                [sensor_id,
+                 belt_heading,
+                 box_heading,
+                 box_roll,
+                 box_pitch,
+                 accuracy,
+                 mag_stat,
+                 acc_stat,
+                 gyr_stat,
+                 fus_stat,
+                 is_orientation_accurate])
+        except:
+            pass
+
     def _is_ack(self, gatt_char, data) -> bool:
         """
         Checks if the data corresponds to the current acknowledgment.
@@ -739,6 +809,12 @@ class BeltController(BeltCommunicationDelegate):
                     # Compass accuracy signal state
                     self._notify_compass_accuracy_signal_state(data[2])
 
+        # Belt orientation
+        if gatt_char == navibelt_orientation_data_char:
+            if len(data) >= 16:
+                self._notify_belt_orientation(data)
+
+        # TODO To be moved in diagnosis app using system handler
         # Error notification
         if gatt_char == navibelt_debug_output_char:
             if len(data) >= 5 and data[0] == 0xA0:
@@ -885,6 +961,15 @@ class BeltControllerDelegate:
 
         :param bool enabled:
             'True' if the signal is enabled, 'False' otherwise.
+        """
+        pass
+
+    def on_belt_orientation_notified(self, heading, is_orientation_accurate, extra):
+        """ Called when the orientation of the belt has been notified.
+
+        :param int heading: The heading of the belt in degrees.
+        :param bool is_orientation_accurate: `True` if the orientation is accurate, `False` otherwise.
+        :param List extra: A list containing extra information on the orientation notification.
         """
         pass
 
