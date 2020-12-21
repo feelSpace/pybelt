@@ -359,6 +359,84 @@ class BeltController(BeltCommunicationDelegate):
         if isinstance(self._communication_interface, BleInterface):
             self._communication_interface.close()
 
+    def send_vibration_command(
+            self,
+            channel_index,
+            pattern,
+            intensity,
+            orientation_type,
+            orientation,
+            pattern_iterations,
+            pattern_period,
+            pattern_start_time,
+            exclusive_channel,
+            clear_other_channels) -> bool:
+        """
+        Sends a command that configures the vibration on a vibration channel.
+
+        :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
+        :param int pattern: The vibration pattern to use, see `BeltVibrationPattern`.
+        :param int intensity: The intensity of the vibration in range [0, 100] or `None` to use the default intensity.
+        :param int orientation_type: The type of signal orientation, see `BeltOrientationType`.
+        :param int orientation: The value of the vibration orientation.
+        :param int pattern_iterations: The number of pattern iterations or `None` to repeat indefinitely the pattern.
+            The maximum value is 255 iterations.
+        :param int pattern_period: The duration in milliseconds of one pattern iteration. The maximum period is 65535
+            milliseconds.
+        :param int pattern_start_time: The starting time in milliseconds of the first pattern iteration.
+        :param bool exclusive_channel: `True` to suspend other channels as long as this vibration is active.
+        :param bool clear_other_channels: `True` to stop and clear other channels when this vibration starts.
+        :return: `True` if the command has been sent successfully.
+        :raise ValueError: If a parameter value is illegal.
+        """
+        # TODO
+        pass
+
+    def send_pulse_command(
+            self,
+            channel_index,
+            orientation_type,
+            intensity,
+            on_duration_ms,
+            pulse_period,
+            pulse_iterations,
+            series_period,
+            series_iterations,
+            timer_option,
+            exclusive_channel,
+            clear_other_channels) -> bool:
+        """
+        Sends a command that configures vibration pulses on a vibration channel.
+
+        :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
+        :param int orientation_type: The type of signal orientation, see `BeltOrientationType`.
+        :param int intensity: The intensity of the vibration in range [0, 100] or `None` to use the default intensity.
+        :param int on_duration_ms: The on-duration of a pulse in milliseconds.
+        :param int pulse_period: The period of pulses in milliseconds.
+        :param int pulse_iterations: The number of pulses in a series.
+        :param int series_period: The period of a series of pulses.
+        :param int series_iterations: The number of series iterations or `None` to repeat the series of pulse
+            indefinitely.
+        :param int timer_option: Behavior of the timer for vibration, see `BeltVibrationTimerOption`.
+        :param bool exclusive_channel: `True` to suspend other channels as long as this vibration is active.
+        :param bool clear_other_channels: `True` to stop and clear other channels when this vibration starts.
+        :return: `True` if the command has been sent successfully.
+        :raise ValueError: If a parameter value is illegal.
+        """
+        pass
+
+    def stop_vibration(
+            self,
+            channel_index=None) -> bool:
+        """
+        Stops the vibration on all or one vibration channel in App mode.
+
+        :param int channel_index: The channel index to stop in range [0, 5], or `None` to stop all channels.
+        :return: `True` if the command has been sent successfully.
+        :raise ValueError: If the channel index value is out of range.
+        """
+        pass
+
     # --------------------------------------------------------------- #
     # Private methods
 
