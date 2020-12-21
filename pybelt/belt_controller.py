@@ -693,6 +693,43 @@ class BeltController(BeltCommunicationDelegate):
         except:
             pass
 
+    def _notify_belt_battery(self, packet):
+        """Notifies the belt battery status to the delegate.
+
+        :param bytes packet: The raw battery status data.
+        """
+        if (self._connection_state == BeltConnectionState.DISCONNECTED or
+                self._connection_state == BeltConnectionState.DISCONNECTING):
+            return
+        bat_stat = int.from_bytes(
+            bytes(packet[0:1]),
+            byteorder='little',
+            signed=False)
+        charge_level = float(int.from_bytes(
+            bytes(packet[1:3]),
+            byteorder='little',
+            signed=False))/256.0
+        if charge_level > 100.0:
+            charge_level = 100.0
+        ttfe = float(int.from_bytes(
+            bytes(packet[3:5]),
+            byteorder='little',
+            signed=False))*5.625
+        ma = int.from_bytes(
+            bytes(packet[5:7]),
+            byteorder='little',
+            signed=True)
+        mv = int.from_bytes(
+            bytes(packet[7:9]),
+            byteorder='little',
+            signed=False)
+        try:
+            self._delegate.on_belt_battery_notified(
+                charge_level,
+                [bat_stat, charge_level, ttfe, ma, mv])
+        except:
+            pass
+
     def _is_ack(self, gatt_char, data) -> bool:
         """
         Checks if the data corresponds to the current acknowledgment.
@@ -813,6 +850,11 @@ class BeltController(BeltCommunicationDelegate):
         if gatt_char == navibelt_orientation_data_char:
             if len(data) >= 16:
                 self._notify_belt_orientation(data)
+
+        # Battery status
+        if gatt_char == navibelt_battery_status_char:
+            if len(data) >= 9:
+                self._notify_belt_battery(data)
 
         # TODO To be moved in diagnosis app using system handler
         # Error notification
@@ -970,6 +1012,13 @@ class BeltControllerDelegate:
         :param int heading: The heading of the belt in degrees.
         :param bool is_orientation_accurate: `True` if the orientation is accurate, `False` otherwise.
         :param List extra: A list containing extra information on the orientation notification.
+        """
+        pass
+
+    def on_belt_battery_notified(self, charge_level, extra):
+        """ Called when the battery level of the belt is notified.
+        :param float charge_level: Charge level of the belt battery in percent.
+        :param List extra: Extra information on the belt battery.
         """
         pass
 

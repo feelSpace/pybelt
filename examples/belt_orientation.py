@@ -2,13 +2,12 @@
 # encoding: utf-8
 import logging
 import sys
-import time
 from threading import Event
 
 import pybelt
 from examples.connect import interactive_belt_connect
 
-from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate, BeltMode
+from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate
 
 # Event to stop the script
 button_pressed_event = Event()
@@ -24,7 +23,6 @@ class Delegate(BeltControllerDelegate):
 
 
 def main():
-
     # Config logger to output pybelt debug messages on console
     logger = pybelt.logger
     logger.setLevel(logging.DEBUG)
