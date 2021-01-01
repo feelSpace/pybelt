@@ -53,9 +53,10 @@ class BeltController(BeltCommunicationDelegate):
         self._heading_offset = None
         self._compass_accuracy_signal_enabled = None
 
-        # Buffer for debug message
-        self._debug_message_buffer = ""
-        self._debug_message_last_received = 0
+        # TODO To be moved in diagnostic app
+        # # Buffer for debug message
+        # self._debug_message_buffer = ""
+        # self._debug_message_last_received = 0
 
     def connect(self, belt):
         """ Connects a belt via Bluetooth LE or USB.
@@ -321,16 +322,16 @@ class BeltController(BeltCommunicationDelegate):
         return self._communication_interface.set_gatt_notifications(navibelt_battery_status_char, enabled)
 
     # TODO To be moved in diagnosis app
-    def set_debug_notifications(self, enabled) -> bool:
-        """
-        Sets the state of debug notifications.
-
-        :param enabled: 'True' to enable debug notifications, 'False' to disable.
-        :return: 'True' if the request has been sent successfully.
-        """
-        if self._connection_state == BeltConnectionState.DISCONNECTED:
-            return False
-        return self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, enabled)
+    # def set_debug_notifications(self, enabled) -> bool:
+    #     """
+    #     Sets the state of debug notifications.
+    #
+    #     :param enabled: 'True' to enable debug notifications, 'False' to disable.
+    #     :return: 'True' if the request has been sent successfully.
+    #     """
+    #     if self._connection_state == BeltConnectionState.DISCONNECTED:
+    #         return False
+    #     return self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, enabled)
 
     def rename(self, suffix) -> bool:
         """
@@ -359,6 +360,80 @@ class BeltController(BeltCommunicationDelegate):
         if isinstance(self._communication_interface, BleInterface):
             self._communication_interface.close()
 
+    def vibrate_at_magnetic_bearing(
+            self,
+            bearing,
+            switch_to_app_mode=True,
+            channel_index=1,
+            intensity=None,
+            clear_other_channels=False) -> bool:
+        """
+        Sends a command to start a continuous vibration in a given direction relative to magnetic North.
+
+        :param int bearing: The direction relative to magnetic North in degrees (positive clockwise).
+        :param bool switch_to_app_mode: `True` to switch automatically to app mode.
+        :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
+        :param int intensity: The intensity of the vibration in range [0, 100] or `None` to use the default intensity.
+        :param bool clear_other_channels: `True` to stop and clear other channels when this vibration starts.
+        :return: `True` if the command has been sent successfully.
+        :raise ValueError: If a parameter value is illegal.
+        """
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot send a command when not connected.")
+            return False
+        if self._belt_mode != BeltMode.APP_MODE and switch_to_app_mode:
+            if not self.set_belt_mode(BeltMode.APP_MODE):
+                return False
+        return self.send_vibration_command(
+            channel_index=channel_index,
+            pattern=BeltVibrationPattern.CONTINUOUS,
+            intensity=intensity,
+            orientation_type=BeltOrientationType.MAGNETIC_BEARING,
+            orientation=bearing,
+            pattern_iterations=None,
+            pattern_period=500,
+            pattern_start_time=0,
+            exclusive_channel=False,
+            clear_other_channels=clear_other_channels
+        )
+
+    def vibrate_at_angle(
+            self,
+            angle,
+            switch_to_app_mode=True,
+            channel_index=1,
+            intensity=None,
+            clear_other_channels=False) -> bool:
+        """
+        Sends a command to start a continuous vibration in a given direction relative to user front direction.
+
+        :param int angle: The orientation of the vibration in degrees (positive clockwise), 0 is for front.
+        :param bool switch_to_app_mode: `True` to switch automatically to app mode.
+        :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
+        :param int intensity: The intensity of the vibration in range [0, 100] or `None` to use the default intensity.
+        :param bool clear_other_channels: `True` to stop and clear other channels when this vibration starts.
+        :return: `True` if the command has been sent successfully.
+        :raise ValueError: If a parameter value is illegal.
+        """
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot send a command when not connected.")
+            return False
+        if self._belt_mode != BeltMode.APP_MODE and switch_to_app_mode:
+            if not self.set_belt_mode(BeltMode.APP_MODE):
+                return False
+        return self.send_vibration_command(
+            channel_index=channel_index,
+            pattern=BeltVibrationPattern.CONTINUOUS,
+            intensity=intensity,
+            orientation_type=BeltOrientationType.ANGLE,
+            orientation=angle,
+            pattern_iterations=None,
+            pattern_period=500,
+            pattern_start_time=0,
+            exclusive_channel=False,
+            clear_other_channels=clear_other_channels
+        )
+
     def send_vibration_command(
             self,
             channel_index,
@@ -376,11 +451,12 @@ class BeltController(BeltCommunicationDelegate):
 
         :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
         :param int pattern: The vibration pattern to use, see `BeltVibrationPattern`.
-        :param int intensity: The intensity of the vibration in range [0, 100] or `None` to use the default intensity.
+        :param Union[int,None] intensity: The intensity of the vibration in range [0, 100] or `None` to use the default
+            intensity.
         :param int orientation_type: The type of signal orientation, see `BeltOrientationType`.
         :param int orientation: The value of the vibration orientation.
-        :param int pattern_iterations: The number of pattern iterations or `None` to repeat indefinitely the pattern.
-            The maximum value is 255 iterations.
+        :param Union[int,None] pattern_iterations: The number of pattern iterations or `None` to repeat indefinitely the
+            pattern. The maximum value is 255 iterations.
         :param int pattern_period: The duration in milliseconds of one pattern iteration. The maximum period is 65535
             milliseconds.
         :param int pattern_start_time: The starting time in milliseconds of the first pattern iteration.
@@ -410,13 +486,14 @@ class BeltController(BeltCommunicationDelegate):
 
         :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
         :param int orientation_type: The type of signal orientation, see `BeltOrientationType`.
-        :param int intensity: The intensity of the vibration in range [0, 100] or `None` to use the default intensity.
+        :param Union[int,None] intensity: The intensity of the vibration in range [0, 100] or `None` to use the default
+            intensity.
         :param int on_duration_ms: The on-duration of a pulse in milliseconds.
         :param int pulse_period: The period of pulses in milliseconds.
         :param int pulse_iterations: The number of pulses in a series.
         :param int series_period: The period of a series of pulses.
-        :param int series_iterations: The number of series iterations or `None` to repeat the series of pulse
-            indefinitely.
+        :param Union[int,None] series_iterations: The number of series iterations or `None` to repeat the series of
+            pulse indefinitely.
         :param int timer_option: Behavior of the timer for vibration, see `BeltVibrationTimerOption`.
         :param bool exclusive_channel: `True` to suspend other channels as long as this vibration is active.
         :param bool clear_other_channels: `True` to stop and clear other channels when this vibration starts.
@@ -435,6 +512,7 @@ class BeltController(BeltCommunicationDelegate):
         :return: `True` if the command has been sent successfully.
         :raise ValueError: If the channel index value is out of range.
         """
+        # TODO
         pass
 
     # --------------------------------------------------------------- #
@@ -561,11 +639,11 @@ class BeltController(BeltCommunicationDelegate):
             return False
 
         # TODO To be moved in diagnosis app
-        # Register to debug output
-        self.logger.debug("BeltController: Register to debug output.")
-        if not self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, True):
-            self.logger.error("BeltController: Failed to register to debug output.")
-            return False
+        # # Register to debug output
+        # self.logger.debug("BeltController: Register to debug output.")
+        # if not self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, True):
+        #     self.logger.error("BeltController: Failed to register to debug output.")
+        #     return False
 
         self.logger.info("BeltController: Handshake completed.")
         return True
@@ -854,10 +932,10 @@ class BeltController(BeltCommunicationDelegate):
 
         # TODO To be moved in diagnosis app using system handler
         # Process packet
-        try:
-            self.logger.log(5, "BeltController: "+gatt_char.uuid[4:8]+" <- "+bytes_to_hexstr(data))
-        except:
-            pass
+        # try:
+        #     self.logger.log(5, "BeltController: "+gatt_char.uuid[4:8]+" <- "+bytes_to_hexstr(data))
+        # except:
+        #     pass
 
         # Check for power-off notification
         if ((gatt_char == navibelt_button_press_char and len(data) >= 5 and data[4] == BeltMode.STANDBY) or
@@ -935,30 +1013,30 @@ class BeltController(BeltCommunicationDelegate):
                 self._notify_belt_battery(data)
 
         # TODO To be moved in diagnosis app using system handler
-        # Error notification
-        if gatt_char == navibelt_debug_output_char:
-            if len(data) >= 5 and data[0] == 0xA0:
-                error_id = int.from_bytes(bytes(data[1:5]), byteorder='little', signed=False)
-                self.logger.error("BeltController: Belt error " + hex(error_id) + " !")
+        # # Error notification
+        # if gatt_char == navibelt_debug_output_char:
+        #     if len(data) >= 5 and data[0] == 0xA0:
+        #         error_id = int.from_bytes(bytes(data[1:5]), byteorder='little', signed=False)
+        #         self.logger.error("BeltController: Belt error " + hex(error_id) + " !")
 
         # TODO To be moved in diagnosis app using system handler
-        # Debug message
-        if len(self._debug_message_buffer) > 0 and \
-                time.perf_counter()-self._debug_message_last_received > DEBUG_MESSAGE_COMPLETION_TIMEOUT:
-            # Output incomplete debug message
-            self.logger.debug("Belt debug message: " + self._debug_message_buffer)
-            self._debug_message_buffer = ""
-        if gatt_char == navibelt_debug_output_char:
-            if len(data) > 1 and data[0] == 0x01:
-                self._debug_message_buffer += decode_ascii(data[1:])
-                self._debug_message_last_received = time.perf_counter()
-        # Output message ending with '\n'
-        eol = self._debug_message_buffer.find('\n')
-        while eol >= 0:
-            line = self._debug_message_buffer[:eol]
-            self._debug_message_buffer = self._debug_message_buffer[eol+1:]
-            self.logger.debug("Belt debug message: " + line)
-            eol = self._debug_message_buffer.find('\n')
+        # # Debug message
+        # if len(self._debug_message_buffer) > 0 and \
+        #         time.perf_counter()-self._debug_message_last_received > DEBUG_MESSAGE_COMPLETION_TIMEOUT:
+        #     # Output incomplete debug message
+        #     self.logger.debug("Belt debug message: " + self._debug_message_buffer)
+        #     self._debug_message_buffer = ""
+        # if gatt_char == navibelt_debug_output_char:
+        #     if len(data) > 1 and data[0] == 0x01:
+        #         self._debug_message_buffer += decode_ascii(data[1:])
+        #         self._debug_message_last_received = time.perf_counter()
+        # # Output message ending with '\n'
+        # eol = self._debug_message_buffer.find('\n')
+        # while eol >= 0:
+        #     line = self._debug_message_buffer[:eol]
+        #     self._debug_message_buffer = self._debug_message_buffer[eol+1:]
+        #     self.logger.debug("Belt debug message: " + line)
+        #     eol = self._debug_message_buffer.find('\n')
 
         # TODO Other notifications
 
@@ -1004,7 +1082,7 @@ class BeltConnectionState:
 
 
 class BeltMode:
-    """Enumeration of the belt modes."""
+    """Enumeration of belt modes."""
 
     STANDBY = 0
     WAIT = 1
@@ -1013,6 +1091,26 @@ class BeltMode:
     PAUSE = 4
     CALIBRATION = 5
     CROSSING = 6
+
+
+class BeltOrientationType:
+    """Enumeration of orientation types."""
+
+    BINARY_MASK = 0
+    MOTOR_INDEX = 1
+    ANGLE = 2
+    MAGNETIC_BEARING = 3
+
+
+class BeltVibrationPattern:
+    """Enumeration of vibration patterns."""
+
+    NO_VIBRATION = 0
+    CONTINUOUS = 1
+    SINGLE_SHORT = 2
+    SINGLE_LONG = 3
+    DOUBLE_SHORT = 4
+    DOUBLE_LONG = 5
 
 
 class BeltControllerDelegate:
