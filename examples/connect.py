@@ -11,7 +11,23 @@ from pybelt.belt_controller import BeltController, BeltConnectionState
 from pybelt.belt_scanner import BeltScanner
 
 
+def setup_logger():
+    """Setups the logger to output debug of pyBelt on console.
+    """
+    logger = pybelt.logger
+    logger.setLevel(logging.DEBUG)
+    sh = logging.StreamHandler(sys.stdout)
+    sh_format = logging.Formatter('\033[92m %(levelname)s: %(message)s \033[0m')
+    sh.setFormatter(sh_format)
+    sh.setLevel(logging.DEBUG)
+    logger.addHandler(sh)
+
+
 def interactive_belt_connect(belt_controller):
+    """Interactive procedure to connect a belt. The interface to use is asked via the console.
+
+    :param BeltController belt_controller: The belt controller to connect.
+    """
 
     # Ask for the interface
     interface = input("Connect via Bluetooth or USB? [b,u]")
@@ -77,14 +93,7 @@ def interactive_belt_connect(belt_controller):
 
 def main():
 
-    # Config logger to output pybelt debug messages on console
-    logger = pybelt.logger
-    logger.setLevel(logging.DEBUG)
-    sh = logging.StreamHandler(sys.stdout)
-    sh_format = logging.Formatter('\033[92m %(levelname)s: %(message)s \033[0m')
-    sh.setFormatter(sh_format)
-    sh.setLevel(logging.DEBUG)
-    logger.addHandler(sh)
+    setup_logger()
 
     # Interactive script to connect the belt
     belt_controller = BeltController()

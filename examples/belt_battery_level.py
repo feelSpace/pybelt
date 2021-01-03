@@ -1,11 +1,9 @@
 #! /usr/bin/env python
 # encoding: utf-8
-import logging
-import sys
 from threading import Event
 
 import pybelt
-from examples.connect import interactive_belt_connect
+from examples.connect import interactive_belt_connect, setup_logger
 
 from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate
 
@@ -23,14 +21,7 @@ class Delegate(BeltControllerDelegate):
 
 
 def main():
-    # Config logger to output pybelt debug messages on console
-    logger = pybelt.logger
-    logger.setLevel(logging.DEBUG)
-    sh = logging.StreamHandler(sys.stdout)
-    sh_format = logging.Formatter('\033[92m %(levelname)s: %(message)s \033[0m')
-    sh.setFormatter(sh_format)
-    sh.setLevel(logging.DEBUG)
-    logger.addHandler(sh)
+    setup_logger()
 
     # Interactive script to connect the belt
     belt_controller_delegate = Delegate()

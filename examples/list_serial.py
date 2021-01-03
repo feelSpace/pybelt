@@ -1,23 +1,15 @@
 #! /usr/bin/env python
 # encoding: utf-8
-import logging
-import sys
 
 import serial
 import pybelt
 from serial.tools import list_ports
 
+from examples.connect import setup_logger
+
 
 def main():
-
-    # Config logger to output pybelt debug messages on console
-    logger = pybelt.logger
-    logger.setLevel(logging.DEBUG)
-    sh = logging.StreamHandler(sys.stdout)
-    sh_format = logging.Formatter('\033[92m %(levelname)s: %(message)s \033[0m')
-    sh.setFormatter(sh_format)
-    sh.setLevel(logging.DEBUG)
-    logger.addHandler(sh)
+    setup_logger()
 
     # Retrieve the list of serial COM ports
     ports = serial.tools.list_ports.comports()

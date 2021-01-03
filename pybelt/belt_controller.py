@@ -1,5 +1,5 @@
 # Copyright 2020, feelSpace GmbH, <info@feelspace.de>
-from pybelt.belt_scanner import BeltScanner
+
 from pybelt._communication_interface import *
 from pybelt._gatt_profile import *
 from typing import List
@@ -203,7 +203,7 @@ class BeltController(BeltCommunicationDelegate):
             self._ack_event.clear()
         # Send packet
         try:
-            self.logger.log(5, "BeltController: "+gatt_char.uuid[4:8]+" -> "+bytes_to_hexstr(data))
+            self.logger.log(5, "BeltController: " + gatt_char.uuid[4:8] + " -> " + bytes_to_hexstr(data))
         except:
             pass
         try:
@@ -354,7 +354,7 @@ class BeltController(BeltCommunicationDelegate):
         # Sent rename request
         if self.write_gatt(
                 navibelt_param_request_char,
-                bytes([0x01, 0x84])+encoded_suffix) != 0:
+                bytes([0x01, 0x84]) + encoded_suffix) != 0:
             return False
         self.logger.debug("BeltController: Rename request sent.")
         if isinstance(self._communication_interface, BleInterface):
@@ -465,8 +465,53 @@ class BeltController(BeltCommunicationDelegate):
         :return: `True` if the command has been sent successfully.
         :raise ValueError: If a parameter value is illegal.
         """
-        # TODO
-        pass
+        if channel_index < 0 or channel_index > 5:
+            raise ValueError("Channel index value out of range.")
+        if pattern < 0 or pattern > 26:
+            raise ValueError("Pattern value out of range.")
+        if (intensity is not None) and (intensity < 0 or intensity > 100):
+            raise ValueError("Intensity value out of range.")
+        if orientation_type < 0 or orientation_type > 3:
+            raise ValueError("Orientation type value out of range.")
+        if (pattern_iterations is not None) and (pattern_iterations < 0 or pattern_iterations > 0xFF):
+            raise ValueError("Pattern iterations value out of range.")
+        if pattern_period <= 0 or pattern_period > 65535:
+            raise ValueError("Pattern period value out of range.")
+        if pattern_start_time < 0 or pattern_start_time > 65535:
+            raise ValueError("Pattern start time value out of range.")
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot send a command when not connected.")
+            return False
+        # Adjust values
+        if intensity is None:
+            intensity = 0xAAAA
+        if orientation_type == BeltOrientationType.MAGNETIC_BEARING or orientation_type == BeltOrientationType.ANGLE:
+            orientation = orientation % 360
+        if orientation_type == BeltOrientationType.MOTOR_INDEX:
+            orientation = orientation % 16
+        # Send command
+        return self.write_gatt(
+            navibelt_vibration_command_char,
+            bytes([
+                channel_index,
+                pattern,
+                intensity & 0xFF,
+                (intensity >> 8) & 0xFF,
+                0x00,
+                0x00,
+                orientation_type,
+                orientation & 0xFF,
+                (orientation >> 8) & 0xFF,
+                0x00,
+                0x00,
+                pattern_iterations,
+                pattern_period & 0xFF,
+                (pattern_period >> 8) & 0xFF,
+                pattern_start_time & 0xFF,
+                (pattern_start_time >> 8) & 0xFF,
+                (0x01 if exclusive_channel else 0x00),
+                (0x01 if clear_other_channels else 0x00)
+                ])) == 0
 
     def send_pulse_command(
             self,
@@ -512,8 +557,19 @@ class BeltController(BeltCommunicationDelegate):
         :return: `True` if the command has been sent successfully.
         :raise ValueError: If the channel index value is out of range.
         """
-        # TODO
-        pass
+        if (channel_index is not None) and (channel_index < 0 or channel_index > 5):
+            raise ValueError("Channel index value out of range.")
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot send a command when not connected.")
+            return False
+        if channel_index is None:
+            return self.write_gatt(
+                navibelt_vibration_command_char,
+                bytes([0x30, 0xFF])) == 0
+        else:
+            return self.write_gatt(
+                navibelt_vibration_command_char,
+                bytes([0x30, channel_index & 0xFF])) == 0
 
     # --------------------------------------------------------------- #
     # Private methods
@@ -864,13 +920,13 @@ class BeltController(BeltCommunicationDelegate):
         charge_level = float(int.from_bytes(
             bytes(packet[1:3]),
             byteorder='little',
-            signed=False))/256.0
+            signed=False)) / 256.0
         if charge_level > 100.0:
             charge_level = 100.0
         ttfe = float(int.from_bytes(
             bytes(packet[3:5]),
             byteorder='little',
-            signed=False))*5.625
+            signed=False)) * 5.625
         ma = int.from_bytes(
             bytes(packet[5:7]),
             byteorder='little',
@@ -939,8 +995,8 @@ class BeltController(BeltCommunicationDelegate):
 
         # Check for power-off notification
         if ((gatt_char == navibelt_button_press_char and len(data) >= 5 and data[4] == BeltMode.STANDBY) or
-            (gatt_char == navibelt_param_notification_char and len(data) >= 3 and data[0] == 0x01 and
-             data[1] == 0x01 and data[2] == BeltMode.STANDBY)):
+                (gatt_char == navibelt_param_notification_char and len(data) >= 3 and data[0] == 0x01 and
+                 data[1] == 0x01 and data[2] == BeltMode.STANDBY)):
             self.logger.info("BeltController: Belt switched off.")
             self._communication_interface.close()
 
@@ -981,7 +1037,7 @@ class BeltController(BeltCommunicationDelegate):
         if gatt_char == navibelt_param_notification_char:
             if len(data) >= 4 and data[0] == 0x01 and data[1] == 0x03:
                 self._notify_heading_offset(int.from_bytes(
-                        bytes(data[2:4]), byteorder='little', signed=False))
+                    bytes(data[2:4]), byteorder='little', signed=False))
 
         # BT name
         if gatt_char == navibelt_param_notification_char:
@@ -1066,7 +1122,7 @@ def bytes_to_hexstr(data) -> str:
     strRep = "0x"
     for d in data:
         if d < 16:
-            strRep = strRep+"0"+hex(d)[2:]
+            strRep = strRep + "0" + hex(d)[2:]
         else:
             strRep = strRep + hex(d)[2:]
     return strRep
