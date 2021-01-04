@@ -456,7 +456,7 @@ class BeltController(BeltCommunicationDelegate):
         :param int orientation_type: The type of signal orientation, see `BeltOrientationType`.
         :param int orientation: The value of the vibration orientation.
         :param Union[int,None] pattern_iterations: The number of pattern iterations or `None` to repeat indefinitely the
-            pattern. The maximum value is 255 iterations.
+            pattern. The maximum value is 127 iterations.
         :param int pattern_period: The duration in milliseconds of one pattern iteration. The maximum period is 65535
             milliseconds.
         :param int pattern_start_time: The starting time in milliseconds of the first pattern iteration.
@@ -473,7 +473,7 @@ class BeltController(BeltCommunicationDelegate):
             raise ValueError("Intensity value out of range.")
         if orientation_type < 0 or orientation_type > 3:
             raise ValueError("Orientation type value out of range.")
-        if (pattern_iterations is not None) and (pattern_iterations < 0 or pattern_iterations > 0xFF):
+        if (pattern_iterations is not None) and (pattern_iterations < 0 or pattern_iterations > 127):
             raise ValueError("Pattern iterations value out of range.")
         if pattern_period <= 0 or pattern_period > 65535:
             raise ValueError("Pattern period value out of range.")
@@ -504,7 +504,7 @@ class BeltController(BeltCommunicationDelegate):
                 (orientation >> 8) & 0xFF,
                 0x00,
                 0x00,
-                pattern_iterations,
+                (0x00 if pattern_iterations is None else pattern_iterations),
                 pattern_period & 0xFF,
                 (pattern_period >> 8) & 0xFF,
                 pattern_start_time & 0xFF,
@@ -517,6 +517,7 @@ class BeltController(BeltCommunicationDelegate):
             self,
             channel_index,
             orientation_type,
+            orientation,
             intensity,
             on_duration_ms,
             pulse_period,
@@ -531,6 +532,7 @@ class BeltController(BeltCommunicationDelegate):
 
         :param int channel_index: The channel index to configure. The belt has six channels (index 0 to 5).
         :param int orientation_type: The type of signal orientation, see `BeltOrientationType`.
+        :param int orientation: The value of the vibration orientation.
         :param Union[int,None] intensity: The intensity of the vibration in range [0, 100] or `None` to use the default
             intensity.
         :param int on_duration_ms: The on-duration of a pulse in milliseconds.
@@ -545,7 +547,53 @@ class BeltController(BeltCommunicationDelegate):
         :return: `True` if the command has been sent successfully.
         :raise ValueError: If a parameter value is illegal.
         """
-        pass
+        if channel_index < 0 or channel_index > 5:
+            raise ValueError("Channel index value out of range.")
+        if orientation_type < 0 or orientation_type > 3:
+            raise ValueError("Orientation type value out of range.")
+        if (intensity is not None) and (intensity < 0 or intensity > 100):
+            raise ValueError("Intensity value out of range.")
+        if on_duration_ms <= 0 or on_duration_ms > 65535:
+            raise ValueError("On-duration value out of range.")
+        if pulse_period <= 0 or pulse_period > 65535:
+            raise ValueError("On-duration value out of range.")
+        if pulse_iterations <= 0 or pulse_iterations > 255:
+            raise ValueError("Pulse iterations value out of range.")
+        if series_period <= 0 or series_period > 65535:
+            raise ValueError("Series period value out of range.")
+        if (series_iterations is not None) and (series_iterations < 0 or series_iterations > 127):
+            raise ValueError("Series iterations value out of range.")
+        if timer_option < 0 or timer_option > 2:
+            raise ValueError("Timer option value out of range.")
+        # Adjust values
+        if intensity is None:
+            intensity = 0xAA
+        if orientation_type == BeltOrientationType.MAGNETIC_BEARING or orientation_type == BeltOrientationType.ANGLE:
+            orientation = orientation % 360
+        if orientation_type == BeltOrientationType.MOTOR_INDEX:
+            orientation = orientation % 16
+        # Send command
+        return self.write_gatt(
+            navibelt_vibration_command_char,
+            bytes([
+                0x40,
+                channel_index,
+                orientation_type,
+                orientation & 0xFF,
+                (orientation >> 8) & 0xFF,
+                intensity,
+                on_duration_ms & 0xFF,
+                (on_duration_ms >> 8) & 0xFF,
+                pulse_iterations,
+                (0x00 if series_iterations is None else series_iterations),
+                pulse_period & 0xFF,
+                (pulse_period >> 8) & 0xFF,
+                series_period & 0xFF,
+                (series_period >> 8) & 0xFF,
+                timer_option,
+                (0x01 if exclusive_channel else 0x00),
+                (0x01 if clear_other_channels else 0x00)
+            ])) == 0
 
     def stop_vibration(
             self,
@@ -1167,6 +1215,14 @@ class BeltVibrationPattern:
     SINGLE_LONG = 3
     DOUBLE_SHORT = 4
     DOUBLE_LONG = 5
+
+
+class BeltVibrationTimerOption:
+    """Enumeration of timer option for vibration pulses commands."""
+
+    RESET_TIMER = 0
+    RESET_ON_DIFFERENT_PERIOD = 1
+    KEEP_TIMER = 2
 
 
 class BeltControllerDelegate:

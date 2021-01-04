@@ -28,6 +28,7 @@ def main():
     # 0 -> Stop vibration
     # 1 -> Vibration on the right (90°, channel 0)
     # 2 -> Vibration toward West (270°, channel 1)
+    # 3 -> 3 seconds vibration on the left (270°, channel 2)
 
     while belt_controller.get_connection_state() == BeltConnectionState.CONNECTED:
         print("Q to quit.")
