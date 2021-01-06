@@ -10,10 +10,17 @@ The naviBelt can be used in various domains, for instance:
 * outdoor and video-games,
 * applications that require tactile feedback to improve focus or attention.
 
+## Installation
+
+```
+pip install pybelt
+```
+
 ## Documentation
 
-* [pyBelt documentation](docs/README.md)
+* [pyBelt documentation](https://github.com/feelSpace/pybelt/blob/main/docs/README.md)
 * Developer page (coming soon)
+
 
 ## About feelSpace
 
