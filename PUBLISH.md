@@ -7,6 +7,10 @@ $ pip install twine
 $ pip install wheel
 ```
 
+### Update version
+
+In `setup.py` update the version.
+
 ### Building package
 
 ```
