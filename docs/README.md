@@ -4,12 +4,12 @@
 
 * [Copyright and license notice](#copyright-and-license-notice)
 * [Installation](#installation)
-* [Belt pairing (only Bluetooth)](belt-pairing-only-for-bluetooth-connection)
-* [Belt connection](belt-connection)
-* [Control of the belt mode](control-of-the-belt-mode)
-* [Control of the vibration](control-of-the-vibration)
-* [Orientation of the belt](orientation-of-the-belt)
-* [Battery level of the belt](battery-level-of-the-belt)
+* [Belt pairing (only Bluetooth)](#belt-pairing-only-bluetooth)
+* [Belt connection](#belt-connection)
+* [Control of the belt mode](#control-of-the-belt-mode)
+* [Control of the vibration](#control-of-the-vibration)
+* [Orientation of the belt](#orientation-of-the-belt)
+* [Battery level of the belt](#battery-level-of-the-belt)
 
 ## Copyright and license notice
 
