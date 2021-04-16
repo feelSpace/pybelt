@@ -180,6 +180,41 @@ class BeltController(BeltCommunicationDelegate):
         """
         return self._default_intensity
 
+    def set_default_intensity(self, intensity, vibration_feedback=False, wait_ack=False) -> bool:
+        """
+        Sets the default intensity for belt signals such as compass.
+
+        Note: The minimum default intensity is 5%. Any request to change the intensity below 5% will result in setting
+        this minimum intensity.
+
+        :param int intensity: The default intensity to set in range [0-100].
+        :param bool vibration_feedback: True to start a vibration informing about the new intensity, False for no
+        vibration feedback.
+        :param bool wait_ack: True to wait for mode change acknowledgment.
+        :return: 'True' if the request has been sent successfully.
+        :raise TimeoutError: If the timeout period is reached when waiting for acknowledgment.
+        """
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot set the default intensity when not connected.")
+            return False
+        if intensity < 0:
+            intensity = 0
+        if intensity > 100:
+            intensity = 100
+        if wait_ack:
+            write_result = self.write_gatt(
+                navibelt_param_request_char,
+                bytes([0x01, 0x82, intensity, 0x00, (0x01 if vibration_feedback else 0x00)]),
+                navibelt_param_notification_char,
+                b'\x01\x02')
+        else:
+            write_result = self.write_gatt(
+                navibelt_param_request_char,
+                bytes([0x01, 0x82, intensity, 0x00, (0x01 if vibration_feedback else 0x00)]))
+        if write_result == 2:
+            raise TimeoutError("Timeout period reached when changing the belt mode.")
+        return write_result == 0
+
     def write_gatt(self, gatt_char, data, ack_char=None, ack_data=None, timeout_sec=WAIT_ACK_TIMEOUT_SEC) -> int:
         """
         Sends data to a GATT characteristic.
@@ -359,6 +394,22 @@ class BeltController(BeltCommunicationDelegate):
         self.logger.debug("BeltController: Rename request sent.")
         if isinstance(self._communication_interface, BleInterface):
             self._communication_interface.close()
+
+    def set_pairing_state(self, enabled, save=True, wait_ack=False) -> bool:
+        """
+        Sets the pairing requirement of the belt. The pairing requirement determines if the belt requires pairing or not
+        for connections. When pairing is disabled, any device can connect to the belt without pairing. When pairing is
+        enable, the belt only accept connection from paired devices. To pair a device when pairing is enabled, the
+        pairing mode must be started on the belt by pressing the home button for at least 3 seconds, then the device to
+        connect must request pairing.
+
+        It is recommended to enable pairing for a general usage of the belt and to disable it only for testing purpose.
+
+        :param bool enabled:
+        :param bool save:
+        :param bool wait_ack:
+        :return:
+        """
 
     def vibrate_at_magnetic_bearing(
             self,
