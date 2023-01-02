@@ -30,7 +30,7 @@ class BeltController(BeltCommunicationDelegate):
 
         # Delegates
         self._delegate = delegate
-        self._system_handlers = []
+        self._notifications_handlers = []
 
         # Connection state
         self._connection_state = BeltConnectionState.DISCONNECTED
@@ -320,19 +320,19 @@ class BeltController(BeltCommunicationDelegate):
         self._ack_event.clear()
         return 0
 
-    def add_system_handler(self, handler):
+    def add_notifications_handler(self, handler):
         """
-        Adds a system handler.
-        :param BeltSystemHandler handler: The system handler to add.
+        Adds a notifications handler.
+        :param BeltSystemHandler handler: The notifications handler to add.
         """
-        self._system_handlers.append(handler)
+        self._notifications_handlers.append(handler)
 
-    def remove_system_handler(self, handler):
+    def remove_notifications_handler(self, handler):
         """
-        Removes a system handler.
+        Removes a notifications handler.
         :param BeltSystemHandler handler: The handler to remove
         """
-        self._system_handlers.remove(handler)
+        self._notifications_handlers.remove(handler)
 
     def set_orientation_notifications(self, enabled) -> bool:
         """
@@ -1248,7 +1248,7 @@ class BeltController(BeltCommunicationDelegate):
                 self._ack_event.set()
 
         # Inform system handlers
-        for handler in self._system_handlers:
+        for handler in self._notifications_handlers:
             try:
                 handler.on_gatt_char_notified(gatt_char, data)
             except:
