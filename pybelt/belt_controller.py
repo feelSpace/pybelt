@@ -323,14 +323,14 @@ class BeltController(BeltCommunicationDelegate):
     def add_notifications_handler(self, handler):
         """
         Adds a notifications handler.
-        :param BeltSystemHandler handler: The notifications handler to add.
+        :param BeltNotificationsHandler handler: The notifications handler to add.
         """
         self._notifications_handlers.append(handler)
 
     def remove_notifications_handler(self, handler):
         """
         Removes a notifications handler.
-        :param BeltSystemHandler handler: The handler to remove
+        :param BeltNotificationsHandler handler: The handler to remove
         """
         self._notifications_handlers.remove(handler)
 
@@ -1429,7 +1429,7 @@ class BeltConnectionError(Exception):
         super().__init__(message)
 
 
-class BeltSystemHandler:
+class BeltNotificationsHandler:
     """
     Handler interface for belt debug and test.
     """
