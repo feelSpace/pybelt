@@ -33,6 +33,12 @@ def main():
         print("1: Start three short pulses on the right (channel 0).")
         print("2: Start unlimited long pulses toward West (channel 1).")
         print("3: Start two series of two pulses on front (channel 2).")
+
+        print("4: Standard crossing.")
+        print("5: Long, 1sec - 1sec.")
+        print("6: Long, 2sec - 1sec.")
+        print("7: Short, 0.25sec - 0.25sec.")
+
         action = input()
         try:
             action_int = int(action)
@@ -83,6 +89,68 @@ def main():
                     exclusive_channel=False,
                     clear_other_channels=False
                 )
+
+            elif action_int == 4:
+                belt_controller.send_pulse_command(
+                    channel_index=1,
+                    orientation_type=BeltOrientationType.MAGNETIC_BEARING,
+                    orientation=270,
+                    intensity=None,
+                    on_duration_ms=500,
+                    pulse_period=750,
+                    pulse_iterations=1,
+                    series_period=750,
+                    series_iterations=None,
+                    timer_option=BeltVibrationTimerOption.RESET_TIMER,
+                    exclusive_channel=False,
+                    clear_other_channels=False
+                )
+            elif action_int == 5:
+                belt_controller.send_pulse_command(
+                    channel_index=1,
+                    orientation_type=BeltOrientationType.MAGNETIC_BEARING,
+                    orientation=270,
+                    intensity=None,
+                    on_duration_ms=1000,
+                    pulse_period=2000,
+                    pulse_iterations=1,
+                    series_period=2000,
+                    series_iterations=None,
+                    timer_option=BeltVibrationTimerOption.RESET_TIMER,
+                    exclusive_channel=False,
+                    clear_other_channels=False
+                )
+            elif action_int == 6:
+                belt_controller.send_pulse_command(
+                    channel_index=1,
+                    orientation_type=BeltOrientationType.MAGNETIC_BEARING,
+                    orientation=270,
+                    intensity=None,
+                    on_duration_ms=2000,
+                    pulse_period=3000,
+                    pulse_iterations=1,
+                    series_period=3000,
+                    series_iterations=None,
+                    timer_option=BeltVibrationTimerOption.RESET_TIMER,
+                    exclusive_channel=False,
+                    clear_other_channels=False
+                )
+            elif action_int == 7:
+                belt_controller.send_pulse_command(
+                    channel_index=1,
+                    orientation_type=BeltOrientationType.MAGNETIC_BEARING,
+                    orientation=270,
+                    intensity=None,
+                    on_duration_ms=250,
+                    pulse_period=500,
+                    pulse_iterations=1,
+                    series_period=500,
+                    series_iterations=None,
+                    timer_option=BeltVibrationTimerOption.RESET_TIMER,
+                    exclusive_channel=False,
+                    clear_other_channels=False
+                )
+
             else:
                 print("Unrecognized input.")
         except ValueError:

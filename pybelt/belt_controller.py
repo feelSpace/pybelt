@@ -374,6 +374,10 @@ class BeltController(BeltCommunicationDelegate):
         :param str suffix: The suffix of the belt to set.
         :return: 'True' if the request has been sent successfully.
         """
+        # TODO To be moved in diagnostic app
+        # TODO Adds parameter wait_ack
+        # TODO Raise ValueError If a parameter value is illegal.
+        # TODO Reset name if suffix is None
         if self._connection_state != BeltConnectionState.CONNECTED:
             return False
         encoded_suffix = None
@@ -395,7 +399,7 @@ class BeltController(BeltCommunicationDelegate):
         if isinstance(self._communication_interface, BleInterface):
             self._communication_interface.close()
 
-    def set_pairing_state(self, enabled, save=True, wait_ack=False) -> bool:
+    def set_pairing_requirement(self, pairing_required, save=True, wait_ack=False) -> bool:
         """
         Sets the pairing requirement of the belt. The pairing requirement determines if the belt requires pairing or not
         for connections. When pairing is disabled, any device can connect to the belt without pairing. When pairing is
@@ -405,11 +409,36 @@ class BeltController(BeltCommunicationDelegate):
 
         It is recommended to enable pairing for a general usage of the belt and to disable it only for testing purpose.
 
-        :param bool enabled:
-        :param bool save:
-        :param bool wait_ack:
-        :return:
+        :param bool pairing_required: 'True' to require pairing.
+        :param bool save: 'True' to save the setting on the belt, False for a temporary setting.
+        :param bool wait_ack: 'True' to wait for acknowledgment.
+        :return: 'True' if the request has been sent successfully.
         """
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot set pairing requirement when not connected.")
+            return False
+        if wait_ack:
+            write_result = self.write_gatt(
+                navibelt_param_request_char,
+                bytes([
+                    0x11,
+                    0x25,
+                    (0x01 if save else 0x00),
+                    (0x01 if pairing_required else 0x00)]),
+                navibelt_param_notification_char,
+                b'\x10\x25')
+        else:
+            write_result = self.write_gatt(
+                navibelt_param_request_char,
+                bytes([
+                    0x11,
+                    0x25,
+                    (0x01 if save else 0x00),
+                    (0x01 if pairing_required else 0x00)]),
+                navibelt_param_notification_char)
+        if write_result == 2:
+            raise TimeoutError("Timeout period reached when setting pairing requirement.")
+        return write_result == 0
 
     def vibrate_at_magnetic_bearing(
             self,
@@ -934,6 +963,19 @@ class BeltController(BeltCommunicationDelegate):
         except:
             pass
 
+    def _notify_pairing_requirement(self, pairing_required):
+        """
+        Notifies the delegate of the pairing requirement state.
+        :param pairing_required: 'True' if pairing is required.
+        """
+        if (self._connection_state == BeltConnectionState.DISCONNECTED or
+                self._connection_state == BeltConnectionState.DISCONNECTING):
+            return
+        try:
+            self._delegate.on_pairing_requirement_notified(pairing_required)
+        except:
+            pass
+
     def _notify_belt_orientation(self, packet):
         """Notifies the belt orientation to the delegate.
 
@@ -1156,6 +1198,9 @@ class BeltController(BeltCommunicationDelegate):
                 elif data[1] == 0x03:
                     # Compass accuracy signal state
                     self._notify_compass_accuracy_signal_state(data[2])
+                elif data[1] == 0x25:
+                    # Pairing requirement
+                    self._notify_pairing_requirement(data[2] != 0)
 
         # Belt orientation
         if gatt_char == navibelt_orientation_data_char:
@@ -1345,6 +1390,13 @@ class BeltControllerDelegate:
         """
         pass
 
+    def on_pairing_requirement_notified(self, pairing_required):
+        """ Called when the pairing requirement has been changed or notified.
+
+        :param pairing_required: 'True' if the pairing is required.
+        """
+        pass
+
     def on_belt_orientation_notified(self, heading, is_orientation_accurate, extra):
         """ Called when the orientation of the belt has been notified.
 
@@ -1386,7 +1438,7 @@ class BeltSystemHandler:
         """
         Called when a GATT notification has been received or a characteristic has been read.
 
-        :param GattCharacteristic gatt_char:
+        :param GattCharacteristic gatt_char: The GATT characteristic.
         :param bytes data: The data received.
         """
         pass
