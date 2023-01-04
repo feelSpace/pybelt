@@ -31,6 +31,7 @@ class GattAttribute:
         Gatt attribute constructor.
         :param int handle: Attribute handle.
         """
+        # TODO Change to ble_handle AND usb_handle
         self.handle = handle
 
     def __eq__(self, other):

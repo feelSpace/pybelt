@@ -594,7 +594,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             if not connected:
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
-            await self._gatt_client.write_gatt_char(gatt_char.uuid, bytearray(data))
+            await self._gatt_client.write_gatt_char(gatt_char.uuid, bytearray(data), response=True)
         except:
             self.logger.exception("BleInterface: Error when writing characteristic.")
             return False

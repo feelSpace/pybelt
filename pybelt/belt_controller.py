@@ -822,13 +822,6 @@ class BeltController(BeltCommunicationDelegate):
             self.logger.error("BeltController: Failed to register to power-status notifications.")
             return False
 
-        # TODO To be moved in diagnosis app
-        # # Register to debug output
-        # self.logger.debug("BeltController: Register to debug output.")
-        # if not self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, True):
-        #     self.logger.error("BeltController: Failed to register to debug output.")
-        #     return False
-
         self.logger.info("BeltController: Handshake completed.")
         return True
 
