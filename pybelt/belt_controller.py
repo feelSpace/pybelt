@@ -44,6 +44,9 @@ class BeltController(BeltCommunicationDelegate):
         self._ack_data = None
         self._ack_event = threading.Event()
 
+        # GATT profile
+        self._gatt_profile = None
+
         # Cache of belt parameters
         self._belt_mode = None
         self._default_intensity = None
@@ -52,11 +55,6 @@ class BeltController(BeltCommunicationDelegate):
         self._belt_orientation = None
         self._heading_offset = None
         self._compass_accuracy_signal_enabled = None
-
-        # TODO To be moved in diagnostic app
-        # # Buffer for debug message
-        # self._debug_message_buffer = ""
-        # self._debug_message_last_received = 0
 
     def connect(self, belt):
         """ Connects a belt via Bluetooth LE or USB.
@@ -84,11 +82,14 @@ class BeltController(BeltCommunicationDelegate):
                 self._communication_interface = BleInterface(self)
                 self._communication_interface.open(belt)
         except:
+            self.logger.exception("BeltController: Connection failed.")
             self._close_connection()
             self._set_connection_state(
                 BeltConnectionState.DISCONNECTED,
                 BeltConnectionError("Connection failed."))
             return
+        # Retrieve GATT profile
+        self._gatt_profile = self._communication_interface.get_gatt_profile()
         # Handshake
         if not self._handshake():
             # Handshake failed
@@ -156,13 +157,13 @@ class BeltController(BeltCommunicationDelegate):
             raise ValueError("Belt mode value out of range.")
         if wait_ack:
             write_result = self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([0x01, 0x81, mode]),
-                navibelt_param_notification_char,
+                self._gatt_profile.param_notification_char,
                 b'\x01\x01')
         else:
             write_result = self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([0x01, 0x81, mode]))
         if write_result == 2:
             raise TimeoutError("Timeout period reached when changing the belt mode.")
@@ -203,13 +204,13 @@ class BeltController(BeltCommunicationDelegate):
             intensity = 100
         if wait_ack:
             write_result = self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([0x01, 0x82, intensity, 0x00, (0x01 if vibration_feedback else 0x00)]),
-                navibelt_param_notification_char,
+                self._gatt_profile.param_notification_char,
                 b'\x01\x02')
         else:
             write_result = self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([0x01, 0x82, intensity, 0x00, (0x01 if vibration_feedback else 0x00)]))
         if write_result == 2:
             raise TimeoutError("Timeout period reached when changing the belt mode.")
@@ -343,7 +344,7 @@ class BeltController(BeltCommunicationDelegate):
         """
         if self._connection_state == BeltConnectionState.DISCONNECTED:
             return False
-        return self._communication_interface.set_gatt_notifications(navibelt_orientation_data_char, enabled)
+        return self._communication_interface.set_gatt_notifications(self._gatt_profile.orientation_data_char, enabled)
 
     def set_power_status_notifications(self, enabled) -> bool:
         """
@@ -354,19 +355,7 @@ class BeltController(BeltCommunicationDelegate):
         """
         if self._connection_state == BeltConnectionState.DISCONNECTED:
             return False
-        return self._communication_interface.set_gatt_notifications(navibelt_battery_status_char, enabled)
-
-    # TODO To be moved in diagnosis app
-    # def set_debug_notifications(self, enabled) -> bool:
-    #     """
-    #     Sets the state of debug notifications.
-    #
-    #     :param enabled: 'True' to enable debug notifications, 'False' to disable.
-    #     :return: 'True' if the request has been sent successfully.
-    #     """
-    #     if self._connection_state == BeltConnectionState.DISCONNECTED:
-    #         return False
-    #     return self._communication_interface.set_gatt_notifications(navibelt_debug_output_char, enabled)
+        return self._communication_interface.set_gatt_notifications(self._gatt_profile.battery_status_char, enabled)
 
     def rename(self, suffix) -> bool:
         """
@@ -392,7 +381,7 @@ class BeltController(BeltCommunicationDelegate):
             return False
         # Sent rename request
         if self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([0x01, 0x84]) + encoded_suffix) != 0:
             return False
         self.logger.debug("BeltController: Rename request sent.")
@@ -419,23 +408,23 @@ class BeltController(BeltCommunicationDelegate):
             return False
         if wait_ack:
             write_result = self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([
                     0x11,
                     0x25,
                     (0x01 if save else 0x00),
                     (0x01 if pairing_required else 0x00)]),
-                navibelt_param_notification_char,
+                self._gatt_profile.param_notification_char,
                 b'\x10\x25')
         else:
             write_result = self.write_gatt(
-                navibelt_param_request_char,
+                self._gatt_profile.param_request_char,
                 bytes([
                     0x11,
                     0x25,
                     (0x01 if save else 0x00),
                     (0x01 if pairing_required else 0x00)]),
-                navibelt_param_notification_char)
+                self._gatt_profile.param_notification_char)
         if write_result == 2:
             raise TimeoutError("Timeout period reached when setting pairing requirement.")
         return write_result == 0
@@ -571,7 +560,7 @@ class BeltController(BeltCommunicationDelegate):
             orientation = orientation % 16
         # Send command
         return self.write_gatt(
-            navibelt_vibration_command_char,
+            self._gatt_profile.vibration_command_char,
             bytes([
                 channel_index,
                 pattern,
@@ -654,7 +643,7 @@ class BeltController(BeltCommunicationDelegate):
             orientation = orientation % 16
         # Send command
         return self.write_gatt(
-            navibelt_vibration_command_char,
+            self._gatt_profile.vibration_command_char,
             bytes([
                 0x40,
                 channel_index,
@@ -692,11 +681,11 @@ class BeltController(BeltCommunicationDelegate):
             return False
         if channel_index is None:
             return self.write_gatt(
-                navibelt_vibration_command_char,
+                self._gatt_profile.vibration_command_char,
                 bytes([0x30, 0xFF])) == 0
         else:
             return self.write_gatt(
-                navibelt_vibration_command_char,
+                self._gatt_profile.vibration_command_char,
                 bytes([0x30, channel_index & 0xFF])) == 0
 
     # --------------------------------------------------------------- #
@@ -739,19 +728,19 @@ class BeltController(BeltCommunicationDelegate):
         self.logger.info("BeltController: Start handshake.")
         # Register to keep-alive
         self.logger.debug("BeltController: Register to keep-alive notifications.")
-        if not self._communication_interface.set_gatt_notifications(navibelt_keep_alive_char, True):
+        if not self._communication_interface.set_gatt_notifications(self._gatt_profile.keep_alive_char, True):
             return False
 
         # Register to parameter notifications
         self.logger.debug("BeltController: Register to parameter notifications.")
-        if not self._communication_interface.set_gatt_notifications(navibelt_param_notification_char, True):
+        if not self._communication_interface.set_gatt_notifications(self._gatt_profile.param_notification_char, True):
             return False
 
         # Read belt mode
         self.logger.debug("BeltController: Read belt mode.")
-        if (self.write_gatt(navibelt_param_request_char,
+        if (self.write_gatt(self._gatt_profile.param_request_char,
                             b'\x01\x01',
-                            navibelt_param_notification_char,
+                            self._gatt_profile.param_notification_char,
                             b'\x01\x01') != 0):
             self.logger.error("BeltController: Failed to request belt mode.")
             return False
@@ -761,9 +750,9 @@ class BeltController(BeltCommunicationDelegate):
 
         # Read default intensity
         self.logger.debug("BeltController: Read default intensity.")
-        if (self.write_gatt(navibelt_param_request_char,
+        if (self.write_gatt(self._gatt_profile.param_request_char,
                             b'\x01\x02',
-                            navibelt_param_notification_char,
+                            self._gatt_profile.param_notification_char,
                             b'\x01\x02') != 0):
             self.logger.error("BeltController: Failed to request default intensity.")
             return False
@@ -773,7 +762,7 @@ class BeltController(BeltCommunicationDelegate):
 
         # Read firmware version
         self.logger.debug("BeltController: Read firmware version.")
-        if self.read_gatt(navibelt_firmware_info_char) != 0:
+        if self.read_gatt(self._gatt_profile.firmware_info_char) != 0:
             self.logger.error("BeltController: Failed to request firmware version.")
             return False
         if self._firmware_version is None:
@@ -782,9 +771,9 @@ class BeltController(BeltCommunicationDelegate):
 
         # Read heading offset
         self.logger.debug("BeltController: Read heading offset.")
-        if (self.write_gatt(navibelt_param_request_char,
+        if (self.write_gatt(self._gatt_profile.param_request_char,
                             b'\x01\x03',
-                            navibelt_param_notification_char,
+                            self._gatt_profile.param_notification_char,
                             b'\x01\x03') != 0):
             self.logger.error("BeltController: Failed to request default intensity.")
             return False
@@ -794,9 +783,9 @@ class BeltController(BeltCommunicationDelegate):
 
         # Read compass accuracy signal state
         self.logger.debug("BeltController: Read compass accuracy signal state.")
-        if (self.write_gatt(navibelt_param_request_char,
+        if (self.write_gatt(self._gatt_profile.param_request_char,
                             b'\x10\x01\x03',
-                            navibelt_param_notification_char,
+                            self._gatt_profile.param_notification_char,
                             b'\x10\x03') != 0):
             self.logger.error("BeltController: Failed to request compass accuracy signal state.")
             return False
@@ -806,19 +795,19 @@ class BeltController(BeltCommunicationDelegate):
 
         # Register to button press
         self.logger.debug("BeltController: Register to button press events.")
-        if not self._communication_interface.set_gatt_notifications(navibelt_button_press_char, True):
+        if not self._communication_interface.set_gatt_notifications(self._gatt_profile.button_press_char, True):
             self.logger.error("BeltController: Failed to register to button press events.")
             return False
 
         # Register to orientation notifications
         self.logger.debug("BeltController: Register to orientation notifications.")
-        if not self._communication_interface.set_gatt_notifications(navibelt_orientation_data_char, True):
+        if not self._communication_interface.set_gatt_notifications(self._gatt_profile.orientation_data_char, True):
             self.logger.error("BeltController: Failed to register to orientation notifications.")
             return False
 
         # Register to power status notifications
         self.logger.debug("BeltController: Register to power-status notifications.")
-        if not self._communication_interface.set_gatt_notifications(navibelt_battery_status_char, True):
+        if not self._communication_interface.set_gatt_notifications(self._gatt_profile.battery_status_char, True):
             self.logger.error("BeltController: Failed to register to power-status notifications.")
             return False
 
@@ -870,25 +859,6 @@ class BeltController(BeltCommunicationDelegate):
             self._delegate.on_belt_button_pressed(button_id, previous_mode, new_mode)
         except:
             pass
-
-    # TODO To be removed
-    # def _notify_belt_mode(self, belt_mode):
-    #     """
-    #     Sets the belt mode member variable and notifies the delegate of a belt mode change.
-    #
-    #     :param int belt_mode: The belt mode.
-    #     """
-    #     if (self._connection_state == BeltConnectionState.DISCONNECTED or
-    #             self._connection_state == BeltConnectionState.DISCONNECTING):
-    #         return
-    #     if belt_mode < 0 or belt_mode > 6:
-    #         self.logger.error("BeltController: Illegal mode notification argument.")
-    #         return
-    #     self._belt_mode = belt_mode
-    #     try:
-    #         self._delegate.on_belt_mode_changed(belt_mode)
-    #     except:
-    #         pass
 
     def _notify_default_intensity(self, intensity):
         """
@@ -1127,15 +1097,20 @@ class BeltController(BeltCommunicationDelegate):
         # except:
         #     pass
 
+        # Check for service discovery completed
+        if self._gatt_profile is None:
+            self.logger.debug("BeltController: Notification received before service discovery.")
+            return
+
         # Check for power-off notification
-        if ((gatt_char == navibelt_button_press_char and len(data) >= 5 and data[4] == BeltMode.STANDBY) or
-                (gatt_char == navibelt_param_notification_char and len(data) >= 3 and data[0] == 0x01 and
+        if ((gatt_char == self._gatt_profile.button_press_char and len(data) >= 5 and data[4] == BeltMode.STANDBY) or
+                (gatt_char == self._gatt_profile.param_notification_char and len(data) >= 3 and data[0] == 0x01 and
                  data[1] == 0x01 and data[2] == BeltMode.STANDBY)):
             self.logger.info("BeltController: Belt switched off.")
             self._communication_interface.close()
 
         # Firmware information
-        if gatt_char == navibelt_firmware_info_char:
+        if gatt_char == self._gatt_profile.firmware_info_char:
             # Firmware information received
             if len(data) >= 2:
                 try:
@@ -1145,41 +1120,41 @@ class BeltController(BeltCommunicationDelegate):
                     self.logger.error("Unable to parse firmware version.")
 
         # Keep alive request
-        if gatt_char == navibelt_keep_alive_char:
+        if gatt_char == self._gatt_profile.keep_alive_char:
             # Retrieve belt mode
             if len(data) >= 2:
                 self._set_belt_mode(data[1])
             # Send keep-alive ACK
-            self.write_gatt(navibelt_keep_alive_char, bytes([0x01]))
+            self.write_gatt(self._gatt_profile.keep_alive_char, bytes([0x01]))
 
         # Button press notification
-        if gatt_char == navibelt_button_press_char:
+        if gatt_char == self._gatt_profile.button_press_char:
             if len(data) >= 5:
                 self._notify_button_pressed(data[0], data[3], data[4])
 
         # Belt mode change
-        if gatt_char == navibelt_param_notification_char:
+        if gatt_char == self._gatt_profile.param_notification_char:
             if len(data) >= 3 and data[0] == 0x01 and data[1] == 0x01:
                 self._set_belt_mode(data[2])
 
         # Default intensity
-        if gatt_char == navibelt_param_notification_char:
+        if gatt_char == self._gatt_profile.param_notification_char:
             if len(data) >= 3 and data[0] == 0x01 and data[1] == 0x02:
                 self._notify_default_intensity(data[2])
 
         # Heading offset
-        if gatt_char == navibelt_param_notification_char:
+        if gatt_char == self._gatt_profile.param_notification_char:
             if len(data) >= 4 and data[0] == 0x01 and data[1] == 0x03:
                 self._notify_heading_offset(int.from_bytes(
                     bytes(data[2:4]), byteorder='little', signed=False))
 
         # BT name
-        if gatt_char == navibelt_param_notification_char:
+        if gatt_char == self._gatt_profile.param_notification_char:
             if len(data) >= 2 and data[0] == 0x01 and data[1] == 0x04:
                 self._notify_bt_name(bytearray(data[2:]))
 
         # Advanced parameters
-        if gatt_char == navibelt_param_notification_char:
+        if gatt_char == self._gatt_profile.param_notification_char:
             if len(data) >= 2 and data[0] == 0x10:
                 if data[1] == 0x00:
                     # Default intensity
@@ -1196,12 +1171,12 @@ class BeltController(BeltCommunicationDelegate):
                     self._notify_pairing_requirement(data[2] != 0)
 
         # Belt orientation
-        if gatt_char == navibelt_orientation_data_char:
+        if gatt_char == self._gatt_profile.orientation_data_char:
             if len(data) >= 16:
                 self._notify_belt_orientation(data)
 
         # Battery status
-        if gatt_char == navibelt_battery_status_char:
+        if gatt_char == self._gatt_profile.battery_status_char:
             if len(data) >= 9:
                 self._notify_belt_battery(data)
 

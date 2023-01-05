@@ -29,6 +29,8 @@ SERIAL_FLUSH_INPUT_TIMEOUT = 1.50
 # Timeout for flushing serial input
 
 EVENT_LOOP_READY_TIMEOUT = 1.0
+
+
 # Timeout for initializing the event loop in BLE interface
 
 
@@ -155,6 +157,13 @@ class BeltCommunicationInterface:
         """
         pass
 
+    def get_gatt_profile(self) -> NaviBeltGattProfile:
+        """
+        Returns the GATT profile with characteristics.
+        :return: the GATT profile with characteristics.
+        """
+        pass
+
 
 class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
     """Serial port interface.
@@ -196,6 +205,9 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         # Python version
         self._PY3 = sys.version_info > (3,)
 
+        # GATT profile
+        self._gatt_profile = get_usb_gatt_profile()
+
     def open(self, port, parse_mode=ParseMode.GATT, initial_flush=True):
         """
         Opens a serial connection with a belt.
@@ -221,7 +233,7 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
             timeout=SERIAL_READ_TIMEOUT)
 
         # Initial flush
-        self.write_gatt_char(navibelt_param_request_char, b'\x01\x01')
+        self.write_gatt_char(self._gatt_profile.param_request_char, b'\x01\x01')
         if initial_flush:
             self._flush_input()
 
@@ -229,7 +241,7 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         self.start()
 
         # Dummy command to start binary communication
-        self.write_gatt_char(navibelt_param_request_char, b'\x01\x01')
+        self.write_gatt_char(self._gatt_profile.param_request_char, b'\x01\x01')
         time.sleep(0.5)
 
         # Inform delegate
@@ -325,6 +337,9 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
                 return False
         return True
 
+    def get_gatt_profile(self) -> NaviBeltGattProfile:
+        return self._gatt_profile
+
     # --------------------------------------------------------------- #
     # Implementation of Thread methods
 
@@ -367,7 +382,8 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
                     if packet is None or len(packet) == 0:
                         packet = bytearray()
                         # First byte is attribute handle
-                        if ord(in_byte) in navibelt_attr_handle_dict:
+                        gatt_char = self._gatt_profile.get_char_from_handle(ord(in_byte))
+                        if gatt_char is not None:
                             packet.append(in_byte[0])
                             self._packet_start_time = time.perf_counter()
                         else:
@@ -392,8 +408,9 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
                     if packet is not None and (len(packet) >= 2) and (len(packet) == packet[1] + 2):
                         # Notify packet received
                         try:
+                            gatt_char = self._gatt_profile.get_char_from_handle(packet[0])
                             self._delegate.on_gatt_char_notified(
-                                navibelt_attr_handle_dict[packet[0]],
+                                gatt_char,
                                 packet[2:])
                         except:
                             self.logger.exception("SerialPortListener: Error when handling received packet.")
@@ -464,6 +481,8 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         self._expect_disconnection = False
         # Logger
         self.logger = logging.getLogger(__name__)
+        # GATT profile
+        self._gatt_profile = get_usb_gatt_profile()
 
     def open(self, device=None):
         """
@@ -501,6 +520,8 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             if not connected:
                 self.close()
                 raise Exception("BLE connection failed.")
+            # Retrieve profile / Service discovery (automatic)
+            self._fill_gatt_profile(self._gatt_client.services)
         except:
             # Disconnect and re-raise exception
             self.logger.exception("BleInterface: Error when scheduling connection!")
@@ -648,20 +669,57 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             self.logger.exception("BleInterface: Error when calling delegate method 'on_gatt_char_notified'.")
         return True
 
+    def _fill_gatt_profile(self, services):
+        """ Fills the gatt profile with attribute handles.
+        :param BleakGATTServiceCollection services: The list of services.
+        """
+        for gatt_char in self._gatt_profile.characteristics:
+            bleak_gatt_char = services.get_characteristic(gatt_char.uuid)
+            if bleak_gatt_char is None:
+                self.logger.error("BleInterface: Characteristic not listed for UUID {}".format(gatt_char.uuid))
+            # else: TODO Adds handles
+        # TODO
+        is_new_profile = False
+        try:
+            adv_uuids = self._device.metadata['uuids']
+            for uuid in adv_uuids:
+                if "0000fe51-0000-1000-8000-00805f9b34fb" in uuid.lower():
+                    is_new_profile = True
+                    break
+        except:
+            pass
+        if is_new_profile:
+            self._gatt_profile.set_char_handles("0000fe01-0000-1000-8000-00805f9b34fb", 8, 9)
+            self._gatt_profile.set_char_handles("0000fe02-0000-1000-8000-00805f9b34fb", 10, 11, [12])
+            self._gatt_profile.set_char_handles("0000fe03-0000-1000-8000-00805f9b34fb", 13, 14)
+            self._gatt_profile.set_char_handles("0000fe04-0000-1000-8000-00805f9b34fb", 15, 16, [17])
+            self._gatt_profile.set_char_handles("0000fe05-0000-1000-8000-00805f9b34fb", 18, 19)
+            self._gatt_profile.set_char_handles("0000fe06-0000-1000-8000-00805f9b34fb", 20, 21, [22])
+            self._gatt_profile.set_char_handles("0000fe09-0000-1000-8000-00805f9b34fb", 28, 29, [30])
+            self._gatt_profile.set_char_handles("0000fe0a-0000-1000-8000-00805f9b34fb", 32, 33)
+            self._gatt_profile.set_char_handles("0000fe0b-0000-1000-8000-00805f9b34fb", 34, 35, [36])
+            self._gatt_profile.set_char_handles("0000fe0c-0000-1000-8000-00805f9b34fb", 37, 38, [39])
+            self._gatt_profile.set_char_handles("0000fe13-0000-1000-8000-00805f9b34fb", 41, 42)
+            self._gatt_profile.set_char_handles("0000fe14-0000-1000-8000-00805f9b34fb", 43, 44, [45])
+        else:
+            self._gatt_profile = get_usb_gatt_profile()
+        self.logger.debug("TO BE COMPLETED!")
+
     # --------------------------------------------------------------- #
     # Bleak GATT client callback methods
 
     def _on_notification_received(self, attr_handle, data):
         """
         Callback for notifications.
-        :param str attr_handle: The attribute handle.
+        :param int attr_handle: The attribute handle.
         :param bytearray data: The characteristic notified value.
         """
-        if attr_handle not in navibelt_attr_handle_dict:
+        gatt_char = self._gatt_profile.get_char_from_handle(attr_handle)
+        if gatt_char is None:
             self.logger.debug("BleInterface: Notification on unsupported handle!")
             return
         try:
-            self._event_notifier.notify_gatt_notification(navibelt_attr_handle_dict[attr_handle], bytes(data))
+            self._event_notifier.notify_gatt_notification(gatt_char, bytes(data))
         except:
             self.logger.exception("BleInterface: Failed to access event notifier!")
 
@@ -796,6 +854,9 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             return False
         return True
 
+    def get_gatt_profile(self) -> NaviBeltGattProfile:
+        return self._gatt_profile
+
     # --------------------------------------------------------------- #
     # Implementation of Thread methods
 
@@ -894,7 +955,7 @@ class BleEventNotifier(threading.Thread):
         Notifies asynchronously the delegate that a connection has been established.
         """
         if self.is_alive():
-            self._notification_queue.put((self.EVENT_CONNECTION, ))
+            self._notification_queue.put((self.EVENT_CONNECTION,))
         else:
             self.logger.warning("BeltEventNotifier: No connection notification as the notifier thread is stopped!")
 

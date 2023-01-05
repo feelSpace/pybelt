@@ -44,7 +44,11 @@ def interactive_belt_connect(belt_controller):
         if len(belts) > 1:
             print("Select the belt to connect.")
             for i, belt in enumerate(belts):
-                print("{}. {} - {}".format((i + 1), belt.name, belt.address))
+                advertised_uuid = "Unknown"
+                if 'uuids' in belt.metadata:
+                    for uuid in belt.metadata['uuids']:
+                        advertised_uuid = uuid
+                print("{}. {} - {} - Adv. UUID {}".format((i + 1), belt.name, belt.address, advertised_uuid))
             belt_selection = input("[1-{}]".format(len(belts)))
             try:
                 belt_selection_int = int(belt_selection)
