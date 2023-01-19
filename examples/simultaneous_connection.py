@@ -1,15 +1,13 @@
 #! /usr/bin/env python
 # encoding: utf-8
-
 import pybelt
-from examples.connect import setup_logger
-
+from examples.examples_utility import belt_controller_log_to_stdout
 from pybelt.belt_controller import BeltController, BeltConnectionState
 from pybelt.belt_scanner import BeltScanner
 
 
 def main():
-    setup_logger()
+    belt_controller_log_to_stdout()
 
     # Notice
     print("Note: Before establishing simultaneous connections, you must either: ")

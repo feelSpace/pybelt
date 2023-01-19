@@ -2,12 +2,12 @@
 # encoding: utf-8
 
 import pybelt
-from examples.connect import setup_logger
+from examples.examples_utility import belt_controller_log_to_stdout
 from pybelt.belt_scanner import BeltScanner
 
 
 def main():
-    setup_logger()
+    belt_controller_log_to_stdout()
 
     # Scan
     with pybelt.belt_scanner.create() as scanner:

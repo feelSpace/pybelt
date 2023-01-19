@@ -1,9 +1,6 @@
 #! /usr/bin/env python
 # encoding: utf-8
-
-import pybelt
-from examples.connect import interactive_belt_connect, setup_logger
-
+from examples.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
 from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate, BeltMode
 
 
@@ -17,12 +14,12 @@ class Delegate(BeltControllerDelegate):
 
 
 def main():
-    setup_logger()
+    belt_controller_log_to_stdout()
 
     # Interactive script to connect the belt
     belt_controller_delegate = Delegate()
     belt_controller = BeltController(belt_controller_delegate)
-    interactive_belt_connect(belt_controller)
+    interactive_belt_connection(belt_controller)
     if belt_controller.get_connection_state() != BeltConnectionState.CONNECTED:
         print("Connection failed.")
         return 0

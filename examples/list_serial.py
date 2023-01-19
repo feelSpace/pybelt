@@ -5,11 +5,11 @@ import serial
 import pybelt
 from serial.tools import list_ports
 
-from examples.connect import setup_logger
+from examples.examples_utility import belt_controller_log_to_stdout
 
 
 def main():
-    setup_logger()
+    belt_controller_log_to_stdout()
 
     # Retrieve the list of serial COM ports
     ports = serial.tools.list_ports.comports()
