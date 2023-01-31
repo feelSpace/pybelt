@@ -396,11 +396,17 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
                         if ord(in_byte) <= 22:
                             packet.append(in_byte[0])
                         else:
-                            # Incorrect length, clear received data
-                            self.logger.error("SerialPortListener: Incorrect packet length in packet header. (" +
-                                              decode_ascii(in_byte) + ")")
-                            self._flush_input()
-                            packet = None
+                            gatt_char = self._gatt_profile.get_char_from_handle(ord(packet[0]))
+                            if gatt_char is not None and gatt_char == self._gatt_profile.sensor_notification_char and \
+                                    ord(in_byte) <= 244:
+                                # Data length extension supported on sensor notifications
+                                packet.append(in_byte[0])
+                            else:
+                                # Incorrect length, clear received data
+                                self.logger.error("SerialPortListener: Incorrect packet length in packet header. (" +
+                                                  decode_ascii(in_byte) + ")")
+                                self._flush_input()
+                                packet = None
                     elif len(packet) >= 2:
                         # Complete packet to the data size
                         packet.append(in_byte[0])
@@ -943,7 +949,7 @@ class BleEventNotifier(threading.Thread):
         """
         Notifies asynchronously the delegate of a GATT notification.
         :param gatt_char: The GATT characteristic on which the notification has been received.
-        :param data: The adta received.
+        :param data: The data received.
         """
         if self.is_alive():
             self._notification_queue.put((self.EVENT_GATT_NOTIFICATION, gatt_char, data))
