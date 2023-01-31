@@ -12,7 +12,7 @@ import pybelt
 
 from serial.tools import list_ports
 
-from pybelt.belt_controller import BeltController, BeltMode
+from pybelt.belt_controller import BeltController, BeltMode, BeltConnectionState
 from pybelt.belt_scanner import BeltScanner
 
 
@@ -140,4 +140,21 @@ def belt_button_id_to_string(button_id) -> str:
         return "Compass"
     elif button_id == 4:
         return "Home"
+    return "Unknown"
+
+
+def connection_state_to_string(state) -> str:
+    """ Return a string description of a connection state.
+
+    :param state: The connection state.
+    :return: The string description of the state.
+    """
+    if state == BeltConnectionState.DISCONNECTED:
+        return "Disconnected"
+    if state == BeltConnectionState.CONNECTING:
+        return "Connecting"
+    if state == BeltConnectionState.CONNECTED:
+        return "Connected"
+    if state == BeltConnectionState.DISCONNECTING:
+        return "Disconnecting"
     return "Unknown"

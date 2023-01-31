@@ -396,7 +396,7 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
                         if ord(in_byte) <= 22:
                             packet.append(in_byte[0])
                         else:
-                            gatt_char = self._gatt_profile.get_char_from_handle(ord(packet[0]))
+                            gatt_char = self._gatt_profile.get_char_from_handle(packet[0])
                             if gatt_char is not None and gatt_char == self._gatt_profile.sensor_notification_char and \
                                     ord(in_byte) <= 244:
                                 # Data length extension supported on sensor notifications
