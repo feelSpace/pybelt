@@ -685,12 +685,13 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
                 self.logger.error("BleInterface: Characteristic not listed for UUID {}".format(gatt_char.uuid))
             # else: TODO Adds handles
         # TODO
-        is_new_profile = False
+        is_new_profile = True
         try:
             adv_uuids = self._device.metadata['uuids']
             for uuid in adv_uuids:
-                if "0000fe51-0000-1000-8000-00805f9b34fb" in uuid.lower():
-                    is_new_profile = True
+                if "65333333-a115-11e2-9e9a-0800200ca100" in uuid.lower() or \
+                        "65333333-a115-11e2-9e9a-0800200ca200" in uuid.lower():
+                    is_new_profile = False
                     break
         except:
             pass
@@ -709,7 +710,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             self._gatt_profile.set_char_handles("0000fe14-0000-1000-8000-00805f9b34fb", 43, 44, [45])
         else:
             self._gatt_profile = get_usb_gatt_profile()
-        self.logger.debug("TO BE COMPLETED!")
+        self.logger.debug("BLE interface, TBC: UUIDs should be used instead of characteristic handles!")
 
     # --------------------------------------------------------------- #
     # Bleak GATT client callback methods
