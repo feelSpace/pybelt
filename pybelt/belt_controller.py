@@ -954,19 +954,19 @@ class BeltController(BeltCommunicationDelegate):
         belt_heading = int.from_bytes(
             bytes(packet[1:3]),
             byteorder='little',
-            signed=False)
+            signed=True)
         box_heading = int.from_bytes(
             bytes(packet[3:5]),
             byteorder='little',
-            signed=False)
+            signed=True)
         box_roll = int.from_bytes(
             bytes(packet[5:7]),
             byteorder='little',
-            signed=False)
+            signed=True)
         box_pitch = int.from_bytes(
             bytes(packet[7:9]),
             byteorder='little',
-            signed=False)
+            signed=True)
         accuracy = int.from_bytes(
             bytes(packet[9:11]),
             byteorder='little',

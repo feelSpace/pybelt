@@ -12,7 +12,8 @@ button_pressed_event = Event()
 class Delegate(BeltControllerDelegate):
 
     def on_belt_orientation_notified(self, heading, is_orientation_accurate, extra):
-        print("\rBelt heading {}°, accurate: {}            ".format(heading, is_orientation_accurate), end="")
+        print("\rBelt heading {}°, accurate: {}, (y: {}, r: {}, p: {})            ".format(
+            heading, is_orientation_accurate, extra[2], extra[3], extra[4]), end="")
 
     def on_belt_button_pressed(self, button_id, previous_mode, new_mode):
         button_pressed_event.set()
