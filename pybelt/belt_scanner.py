@@ -69,24 +69,24 @@ class BeltScanner:
         """
         self._logger.debug("BeltScanner: Start async scan.")
         belts = []
-        devices = await BleakScanner.discover()
-        for d in devices:
+        devices = await BleakScanner.discover(return_adv=True)
+        for d in devices.values():
             self._logger.debug("BeltScanner: Device found.")
             # Check for service UUID
-            if 'uuids' in d.metadata:
-                for uuid in d.metadata['uuids']:
-                    self._logger.debug("BeltScanner: Advertised UUID {}.".format(uuid))
-                    if isinstance(uuid, str) and ("65333333-a115-11e2-9e9a-0800200ca100" in uuid.lower()
-                                                  or "0000fe51-0000-1000-8000-00805f9b34fb" in uuid.lower()):
-                        # Check if belt not yet discovered
-                        belt_already_discovered = False
-                        for b in belts:
-                            if isinstance(b.address, str) and isinstance(d.address, str) and \
-                                    (b.address.lower() == d.address.lower()):
-                                belt_already_discovered = True
-                                break
-                        if not belt_already_discovered:
-                            belts.append(d)
+            adv_data = d[1]
+            for uuid in adv_data.service_uuids:
+                self._logger.debug("BeltScanner: Advertised UUID {}.".format(uuid))
+                if isinstance(uuid, str) and ("65333333-a115-11e2-9e9a-0800200ca100" in uuid.lower()
+                                              or "0000fe51-0000-1000-8000-00805f9b34fb" in uuid.lower()):
+                    # Check if belt not yet discovered
+                    belt_already_discovered = False
+                    for b in belts:
+                        if isinstance(b.address, str) and isinstance(d[0].address, str) and \
+                                (b.address.lower() == d[0].address.lower()):
+                            belt_already_discovered = True
+                            break
+                    if not belt_already_discovered:
+                        belts.append(d[0])
         self._logger.debug("BeltScanner: End async scan.")
         return belts
 

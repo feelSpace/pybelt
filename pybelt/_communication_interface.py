@@ -10,6 +10,7 @@ import bleak
 import serial
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
+from pybelt import belt_scanner
 
 from pybelt._gatt_profile import *
 
@@ -511,10 +512,14 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         self._device = device
         if self._device is None:
             try:
-                future = asyncio.run_coroutine_threadsafe(self._scan(), self._event_loop)
-                self._device = future.result()
+                # Use belt scanner to find the first belt
+                belts = []
+                with belt_scanner.create() as scanner:
+                    belts = scanner.scan()
+                if not belts:
+                    self._device = belts[0]
             except:
-                self.logger.exception("BleInterface: Error when scheduling scan!")
+                self.logger.exception("BleInterface: Error when scanning!")
                 self.close()
                 raise
         if self._device is None:
