@@ -528,7 +528,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             # Connect to device
             future = asyncio.run_coroutine_threadsafe(self._connect(), self._event_loop)
             connected = future.result()
-            if not connected:
+            if not connected or self._gatt_client is None:
                 self.close()
                 raise Exception("BLE connection failed.")
             # Retrieve profile / Service discovery (automatic)
