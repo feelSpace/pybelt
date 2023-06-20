@@ -8,8 +8,9 @@ import logging
 
 import bleak
 import serial
-from bleak import BleakScanner, BleakClient
+from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from pybelt import belt_scanner
 
 from pybelt._gatt_profile import *
 
@@ -479,7 +480,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         threading.Thread.__init__(self, name="BleInterfaceThread")
         self._device = None
         self._delegate = delegate
-        self._gatt_client = None
+        self._gatt_client = None  # type: Optional[BleakClient]
         self._event_loop = None
         self._event_loop_ready = threading.Event()
         self._event_notifier = None
@@ -511,10 +512,14 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         self._device = device
         if self._device is None:
             try:
-                future = asyncio.run_coroutine_threadsafe(self._scan(), self._event_loop)
-                self._device = future.result()
+                # Use belt scanner to find the first belt
+                belts = []
+                with belt_scanner.create() as scanner:
+                    belts = scanner.scan()
+                if not belts:
+                    self._device = belts[0]
             except:
-                self.logger.exception("BleInterface: Error when scheduling scan!")
+                self.logger.exception("BleInterface: Error when scanning!")
                 self.close()
                 raise
         if self._device is None:
@@ -523,7 +528,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             # Connect to device
             future = asyncio.run_coroutine_threadsafe(self._connect(), self._event_loop)
             connected = future.result()
-            if not connected:
+            if not connected or self._gatt_client is None:
                 self.close()
                 raise Exception("BLE connection failed.")
             # Retrieve profile / Service discovery (automatic)
@@ -551,24 +556,6 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
     # --------------------------------------------------------------- #
     # Private methods
 
-    async def _scan(self) -> BLEDevice:
-        """Scans for a belt.
-        """
-        self.logger.debug("BleInterface: Scan for belt.")
-        try:
-            devices = await BleakScanner.discover()
-            for d in devices:
-                # Check for service UUID
-                if 'uuids' in d.metadata:
-                    for uuid in d.metadata['uuids']:
-                        if isinstance(uuid, str) and "65333333-a115-11e2-9e9a-0800200ca100" in uuid.lower():
-                            self.logger.debug("BleInterface: Belt found.")
-                            self._device = d
-                            return d
-            self.logger.debug("BleInterface: No belt found!")
-        except:
-            self.logger.exception("BleInterface: Error when scanning!")
-
     async def _connect(self) -> bool:
         """
         Connects the belt.
@@ -577,9 +564,9 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         try:
             self.logger.debug("BleInterface: Connect client.")
             self._gatt_client = BleakClient(
-                self._device.address,
-                loop=self._event_loop,
-                disconnected_callback=self._on_device_disconnected)
+                self._device,
+                disconnected_callback=self._on_device_disconnected,
+                loop=self._event_loop)
             await self._gatt_client.connect()
         except:
             self.logger.exception("BleInterface: Error when connecting!")
@@ -595,8 +582,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         success = True
         try:
             if self._gatt_client is not None:
-                connected = await self._gatt_client.is_connected()
-                if connected:
+                if self._gatt_client.is_connected:
                     self.logger.debug("BleInterface: Disconnect client.")
                     success = await self._gatt_client.disconnect()
                 else:
@@ -617,8 +603,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             if self._gatt_client is None:
                 self.logger.warning("BleInterface: No connection to write char!")
                 return False
-            connected = await self._gatt_client.is_connected()
-            if not connected:
+            if not self._gatt_client.is_connected:
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
             await self._gatt_client.write_gatt_char(gatt_char.uuid, bytearray(data), response=True)
@@ -638,8 +623,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             if self._gatt_client is None:
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
-            connected = await self._gatt_client.is_connected()
-            if not connected:
+            if not self._gatt_client.is_connected:
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
             if enabled:
@@ -661,8 +645,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             if self._gatt_client is None:
                 self.logger.warning("BleInterface: No connection to read char!")
                 return False
-            connected = await self._gatt_client.is_connected()
-            if not connected:
+            if not self._gatt_client.is_connected:
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
             value = await self._gatt_client.read_gatt_char(gatt_char.uuid)
@@ -679,51 +662,30 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
         """ Fills the gatt profile with attribute handles.
         :param BleakGATTServiceCollection services: The list of services.
         """
+        self.logger.debug("BleInterface: Service discovery.")
         for gatt_char in self._gatt_profile.characteristics:
-            bleak_gatt_char = services.get_characteristic(gatt_char.uuid)
+            bleak_gatt_char: BleakGATTCharacteristic = services.get_characteristic(gatt_char.uuid)
             if bleak_gatt_char is None:
-                self.logger.error("BleInterface: Characteristic not listed for UUID {}".format(gatt_char.uuid))
-            # else: TODO Adds handles
-        # TODO
-        is_new_profile = True
-        try:
-            adv_uuids = self._device.metadata['uuids']
-            for uuid in adv_uuids:
-                if "65333333-a115-11e2-9e9a-0800200ca100" in uuid.lower() or \
-                        "65333333-a115-11e2-9e9a-0800200ca200" in uuid.lower():
-                    is_new_profile = False
-                    break
-        except:
-            pass
-        if is_new_profile:
-            self._gatt_profile.set_char_handles("0000fe01-0000-1000-8000-00805f9b34fb", 8, 9)
-            self._gatt_profile.set_char_handles("0000fe02-0000-1000-8000-00805f9b34fb", 10, 11, [12])
-            self._gatt_profile.set_char_handles("0000fe03-0000-1000-8000-00805f9b34fb", 13, 14)
-            self._gatt_profile.set_char_handles("0000fe04-0000-1000-8000-00805f9b34fb", 15, 16, [17])
-            self._gatt_profile.set_char_handles("0000fe05-0000-1000-8000-00805f9b34fb", 18, 19)
-            self._gatt_profile.set_char_handles("0000fe06-0000-1000-8000-00805f9b34fb", 20, 21, [22])
-            self._gatt_profile.set_char_handles("0000fe09-0000-1000-8000-00805f9b34fb", 28, 29, [30])
-            self._gatt_profile.set_char_handles("0000fe0a-0000-1000-8000-00805f9b34fb", 32, 33)
-            self._gatt_profile.set_char_handles("0000fe0b-0000-1000-8000-00805f9b34fb", 34, 35, [36])
-            self._gatt_profile.set_char_handles("0000fe0c-0000-1000-8000-00805f9b34fb", 37, 38, [39])
-            self._gatt_profile.set_char_handles("0000fe13-0000-1000-8000-00805f9b34fb", 41, 42)
-            self._gatt_profile.set_char_handles("0000fe14-0000-1000-8000-00805f9b34fb", 43, 44, [45])
-        else:
-            self._gatt_profile = get_usb_gatt_profile()
-        self.logger.debug("BLE interface, TBC: UUIDs should be used instead of characteristic handles!")
+                self.logger.error("BleInterface: Characteristic not listed for UUID {}.".format(gatt_char.uuid))
+            else:
+                descriptor_handles = []
+                for descriptor in bleak_gatt_char.descriptors:
+                    descriptor_handles.append(descriptor.handle)
+                self._gatt_profile.set_char_handles(gatt_char.uuid, bleak_gatt_char.handle, bleak_gatt_char.handle + 1,
+                                                    descriptor_handles)
 
     # --------------------------------------------------------------- #
     # Bleak GATT client callback methods
 
-    def _on_notification_received(self, attr_handle, data):
+    def _on_notification_received(self, characteristic, data):
         """
         Callback for notifications.
-        :param int attr_handle: The attribute handle.
+        :param BleakGATTCharacteristic characteristic: The characteristic.
         :param bytearray data: The characteristic notified value.
         """
-        gatt_char = self._gatt_profile.get_char_from_handle(attr_handle)
+        gatt_char = self._gatt_profile.get_char_from_handle(characteristic.handle)
         if gatt_char is None:
-            self.logger.debug("BleInterface: Notification on unsupported handle!")
+            self.logger.debug("BleInterface: Notification on unsupported handle ({})!".format(characteristic.handle))
             return
         try:
             self._event_notifier.notify_gatt_notification(gatt_char, bytes(data))
@@ -733,7 +695,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
     def _on_device_disconnected(self, gatt_client):
         """
         Callback on disconnection.
-        :param gatt_client: The GATT client disconnected.
+        :param BleakClient gatt_client: The GATT client disconnected.
         """
         self.logger.debug("BleInterface: Client {} disconnected.".format(gatt_client.address))
         if self._gatt_client is None:

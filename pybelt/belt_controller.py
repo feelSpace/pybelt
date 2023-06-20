@@ -339,6 +339,11 @@ class BeltController(BeltCommunicationDelegate):
         """
         Sets the state of orientation notifications.
 
+        IMPORTANT: It is important to note that orientation updates from the belt were not designed for updating a
+        system in real-time, just for monitoring and showing on a map the orientation of the belt. In case you need a
+        vibration signal on the belt that is dependent on the orientation, you can use the `vibrate_at_magnetic_bearing`
+        or `send_pulse_command` (with orientation_type=MAGNETIC_BEARING) to get a vibration relative to magnetic North.
+
         :param enabled: 'True' to enable orientation notifications, 'False' to disable.
         :return: 'True' if the request has been sent successfully.
         """
@@ -428,6 +433,56 @@ class BeltController(BeltCommunicationDelegate):
         if write_result == 2:
             raise TimeoutError("Timeout period reached when setting pairing requirement.")
         return write_result == 0
+
+    def set_orientation_notification_period(self, period, start_notification) -> bool:
+        """
+        Sets the period for orientation notifications.
+
+        Changing the period of orientation notifications is only available from firmware version 52. The minimum
+        notification period supported by the belt is 20ms (i.e. 50Hz).
+
+        IMPORTANT: It is important to note that orientation updates from the belt were not designed for updating a
+        system in real-time, just for monitoring and showing on a map the orientation of the belt. In case you need a
+        vibration signal on the belt that is dependent on the orientation, you can use the `vibrate_at_magnetic_bearing`
+        or `send_pulse_command` (with orientation_type=MAGNETIC_BEARING) to get a vibration relative to magnetic North.
+
+        The belt orientation may be inaccurate when used indoor because of magnetic interference. To get a better
+        orientation, it is recommended to calibrate the belt in the room where it is used (or outdoor if used outdoor).
+
+        It is not recommended to use short notification period over BLE connection. For short notification
+        periods, after disconnection, it may be required to wait a few seconds to reconnect the belt again. If the
+        reconnection failed, it may be necessary to restart the belt. In case the belt does not respond anymore, you can
+        make a “hard power-off” by pressing the power button of the belt more than 6 seconds and then pressing it again
+        to restart the belt.
+
+        :param period: The period in seconds. Minimum value is 20 milliseconds (50Hz).
+        :param start_notification: 'True' to start the orientation notification.
+        :return: 'True' on success, 'False' otherwise.
+        """
+        if self.get_connection_state() != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: No belt belt connected to set notification period.")
+            return False
+        if self.get_firmware_version() < 52:
+            self.logger.warning("BeltController: Belt firmware version not supported.")
+            return False
+        if period < 0.02:
+            self.logger.warning("BeltController: Notification period not supported.")
+            return False
+        period_ms = int(period * 1000.0)
+        self.set_orientation_notifications(False)
+        if self.write_gatt(self._gatt_profile.param_request_char,
+                           bytes([
+                               0x11,
+                               0x0F,
+                               0x00,
+                               period_ms & 0xFF,
+                               (period_ms >> 8) & 0xFF,
+                           ]),
+                           self._gatt_profile.param_notification_char,
+                           b'\x10\x0F') != 0:
+            self.logger.warning("BeltController: Failed to write notification period parameter.")
+            return False
+        return self.set_orientation_notifications(True)
 
     def vibrate_at_magnetic_bearing(
             self,
@@ -580,7 +635,7 @@ class BeltController(BeltCommunicationDelegate):
                 (pattern_start_time >> 8) & 0xFF,
                 (0x01 if exclusive_channel else 0x00),
                 (0x01 if clear_other_channels else 0x00)
-                ])) == 0
+            ])) == 0
 
     def send_pulse_command(
             self,
