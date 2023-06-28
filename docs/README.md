@@ -176,6 +176,11 @@ For “fine-tuned” vibration signals, two methods are available:
 - `send_vibration_command()` to configure the vibration on a channel,
 - ` send_pulse_command()` to configure a series of vibration pulses on a channel.
 
+NOTE: In Application mode, the channel 0 is used by the inaccurate orientation signal. This signal consists in 
+three vibration pulses on the side of the belt. When this signal is started it will replace any vibration 
+configuration on channel 0. So, it is recommended to use channels 1 to 5 for the vibration, or disabling 
+the inaccurate orientation signal in application mode.
+
 See [examples/vibration_command.py](https://github.com/feelSpace/pybelt/blob/main/examples/vibration_command.py) and [examples/pulse_command.py](https://github.com/feelSpace/pybelt/blob/main/examples/pulse_command.py).
 
 ## Orientation of the belt
@@ -189,3 +194,21 @@ See [examples/belt_orientation.py](https://github.com/feelSpace/pybelt/blob/main
 The belt regularly notifies the application about its battery level. To listen to belt battery notifications, you must implement the `BeltControllerDelegate` interface. The method `on_belt_battery_notified()` is called when an battery notification is received.
 
 See [examples/belt_battery_level.py](https://github.com/feelSpace/pybelt/blob/main/examples/belt_battery_level.py).
+
+## Inaccurate orientation signal
+
+In compass mode and application mode, a vibration indicates when the compass orientation might be inaccurate.
+The inaccurate orientation signal consists in three pulses on both sides of the belt. The signal comes when 
+magnetic interferences are present or if calibration was not made correctly. The signal indicates a 
+**possible** inaccuracy of the orientation relative to magnetic North. Most of the time, the signal occurs 
+when the belt is used indoor, close to large metallic structure, close to electric devices (e.g. charging 
+station for automobile), or if a smartphone or set of keys are on the belt control box. The signal should 
+stop when the belt is moved away from the source of magnetic interferences.
+
+If your application does not rely on the compass for the direction of vibrations, you can disable 
+temporarily the inaccurate orientation signal for the application mode. You can also disable and save 
+this configuration on the belt if you use a belt for an experiment. **If your application is meant for 
+other users than you, you must explicitly inform the user before disabling the inaccurate orientation 
+signal. The inaccurate orientation signal is important for a safe usage of the belt.**
+
+See: [examples/inaccurate_orientation_signal.py](https://github.com/feelSpace/pybelt/blob/main/examples/ inaccurate_orientation_signal.py).

@@ -54,7 +54,7 @@ class BeltController(BeltCommunicationDelegate):
         self._battery_status = None
         self._belt_orientation = None
         self._heading_offset = None
-        self._compass_accuracy_signal_enabled = None
+        self._inaccurate_signal_state = None
 
     def connect(self, belt):
         """ Connects a belt via Bluetooth LE or USB.
@@ -743,6 +743,70 @@ class BeltController(BeltCommunicationDelegate):
                 self._gatt_profile.vibration_command_char,
                 bytes([0x30, channel_index & 0xFF])) == 0
 
+    def get_inaccurate_orientation_signal_state(self) -> (bool, bool):
+        """ Returns the state (enabled/disabled) of the inaccurate orientation signal.
+
+        :return: A tuple indicating the state of the inaccurate signal. The first value is the state in application
+            mode, the second one is the state in compass mode. Returns `None` if the belt is not connected,
+        """
+        return self._inaccurate_signal_state
+
+    def set_inaccurate_orientation_signal_state(self, enable_in_app, save_on_belt, enable_in_compass=True,
+                                                wait_ack=False) -> bool:
+        """ Sets the state of the inaccurate orientation signal.
+
+        The inaccurate orientation signal is a vibration signal that indicates a possible inaccuracy in orientation
+        relative to magnetic North. The signal consists in three pulses on both sides of the belt. If your application
+        does not rely on the compass for the direction of vibrations, you can disable temporarily the inaccurate
+        orientation signal for the application mode. You can also disable and save this configuration on the belt if
+        you use a belt for an experiment.
+
+        IMPORTANT: If your application is meant for other users than you, you must explicitly inform the user before
+        disabling the inaccurate orientation signal. The inaccurate orientation signal is important for a safe usage
+        of the belt.
+
+        :param bool enable_in_app: `True` to enable the inaccurate signal in application mode, `False` to disable the
+            signal.
+        :param bool save_on_belt: `True` to save the inaccurate signal configuration on the belt. If `False` the
+            configuration will be reset on power cycle.
+        :param bool enable_in_compass:  `True` to enable the inaccurate signal in compass mode, `False` to disable the
+            signal.
+        :param bool wait_ack: `True` to wait for request acknowledgment.
+        :return: `True` if the request has been sent correctly, `False` if no belt is connected or a communication
+            problem occurs.
+        :raise TimeoutError: If acknowledgment is not received within the timeout period.
+        """
+        if self._connection_state != BeltConnectionState.CONNECTED:
+            self.logger.warning("BeltController: Cannot set inaccurate signal state when not connected.")
+            return False
+        signal_state = 0
+        if enable_in_compass:
+            signal_state = signal_state + 1
+        if enable_in_app:
+            signal_state = signal_state + 2
+        if wait_ack:
+            write_result = self.write_gatt(
+                self._gatt_profile.param_request_char,
+                bytes([
+                    0x11,
+                    0x03,
+                    (0x01 if save_on_belt else 0x00),
+                    signal_state]),
+                self._gatt_profile.param_notification_char,
+                b'\x10\x03')
+        else:
+            write_result = self.write_gatt(
+                self._gatt_profile.param_request_char,
+                bytes([
+                    0x11,
+                    0x03,
+                    (0x01 if save_on_belt else 0x00),
+                    signal_state]),
+                self._gatt_profile.param_notification_char)
+        if write_result == 2:
+            raise TimeoutError("Timeout period reached when setting inaccurate signal state.")
+        return write_result == 0
+
     # --------------------------------------------------------------- #
     # Private methods
 
@@ -773,7 +837,7 @@ class BeltController(BeltCommunicationDelegate):
         self._battery_status = None
         self._belt_orientation = None
         self._heading_offset = None
-        self._compass_accuracy_signal_enabled = None
+        self._inaccurate_signal_state = None
 
     def _handshake(self):
         """Handshake procedure.
@@ -844,7 +908,7 @@ class BeltController(BeltCommunicationDelegate):
                             b'\x10\x03') != 0):
             self.logger.error("BeltController: Failed to request compass accuracy signal state.")
             return False
-        if self._compass_accuracy_signal_enabled is None:
+        if self._inaccurate_signal_state is None:
             self.logger.error("BeltController: Failed to read compass accuracy signal state.")
             return False
 
@@ -975,9 +1039,11 @@ class BeltController(BeltCommunicationDelegate):
         if (self._connection_state == BeltConnectionState.DISCONNECTED or
                 self._connection_state == BeltConnectionState.DISCONNECTING):
             return
-        self._compass_accuracy_signal_enabled = state != 0
+        enabled_in_compass = (state == 1) or (state == 3)
+        enabled_in_app = (state == 2) or (state == 3)
+        self._inaccurate_signal_state = (enabled_in_app, enabled_in_compass)
         try:
-            self._delegate.on_compass_accuracy_signal_state_notified(state != 0)
+            self._delegate.on_inaccurate_orientation_signal_state_notified(enabled_in_app, enabled_in_compass)
         except:
             pass
 
@@ -1404,15 +1470,6 @@ class BeltControllerDelegate:
         """
         pass
 
-    def on_compass_accuracy_signal_state_notified(self, enabled):
-        """
-        Called when the state of the compass accuracy signal has been changed or notified.
-
-        :param bool enabled:
-            'True' if the signal is enabled, 'False' otherwise.
-        """
-        pass
-
     def on_pairing_requirement_notified(self, pairing_required):
         """ Called when the pairing requirement has been changed or notified.
 
@@ -1433,6 +1490,16 @@ class BeltControllerDelegate:
         """ Called when the battery level of the belt is notified.
         :param float charge_level: Charge level of the belt battery in percent.
         :param List extra: Extra information on the belt battery.
+        """
+        pass
+
+    def on_inaccurate_orientation_signal_state_notified(self, signal_enabled_in_app_mode,
+                                                        signal_enabled_in_compass_mode):
+        """ Called when the state of the inaccurate orientation signal has been notified.
+        :param bool signal_enabled_in_app_mode: `True` if inaccurate orientation signal is enabled in application mode,
+        `False` otherwise.
+        :param bool signal_enabled_in_compass_mode: `True` if inaccurate orientation signal is enabled in compass mode,
+        `False` otherwise.
         """
         pass
 
