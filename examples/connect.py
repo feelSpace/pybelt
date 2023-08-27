@@ -4,7 +4,7 @@
 """This example shows how to use the `BeltController` class to connect a belt.
 """
 
-from examples.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
+from pybelt.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
 from pybelt.belt_controller import BeltController, BeltConnectionState
 
 
