@@ -22,7 +22,7 @@ The '.tar.gz' archive in 'dist' must be check to see if it contains the files to
 ### Testing package
 
 ```
-$ twine check dist/*
+$ python -m twine check dist/*
 ```
 
 ### Upload on test PyPI
