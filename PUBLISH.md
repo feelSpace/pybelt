@@ -28,7 +28,7 @@ $ python -m twine check dist/*
 ### Upload on test PyPI
 
 ```
-$ twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+$ python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
 
 To be checked on: https://test.pypi.org/
@@ -48,7 +48,7 @@ $ pip uninstall pybelt
 ### Upload on PyPI
 
 ```
-$ twine upload dist/*
+$ python -m twine upload dist/*
 ```
 
 To be checked on: https://pypi.org/
