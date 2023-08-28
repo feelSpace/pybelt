@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 import pybelt
-from examples.examples_utility import belt_controller_log_to_stdout
+from pybelt.examples_utility import belt_controller_log_to_stdout
 from pybelt.belt_controller import BeltController, BeltConnectionState
 from pybelt.belt_scanner import BeltScanner
 

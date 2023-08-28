@@ -5,7 +5,7 @@ from datetime import datetime
 from datetime import timedelta
 from threading import Event, Lock
 
-from examples.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
+from pybelt.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
 from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate
 
 # Event to stop the script

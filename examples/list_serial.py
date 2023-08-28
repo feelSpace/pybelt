@@ -5,7 +5,7 @@ import serial
 import pybelt
 from serial.tools import list_ports
 
-from examples.examples_utility import belt_controller_log_to_stdout
+from pybelt.examples_utility import belt_controller_log_to_stdout
 
 
 def main():

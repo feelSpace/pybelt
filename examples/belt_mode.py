@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-from examples.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection, belt_mode_to_string, \
+from pybelt.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection, belt_mode_to_string, \
     belt_button_id_to_string
 
 from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate, BeltMode

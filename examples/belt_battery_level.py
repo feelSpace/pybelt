@@ -2,7 +2,7 @@
 # encoding: utf-8
 from threading import Event
 
-from examples.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
+from pybelt.examples_utility import belt_controller_log_to_stdout, interactive_belt_connection
 from pybelt.belt_controller import BeltController, BeltConnectionState, BeltControllerDelegate
 
 """This example shows how to get updates of the belt battery level.
