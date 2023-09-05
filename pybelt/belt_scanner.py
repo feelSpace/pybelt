@@ -69,7 +69,7 @@ class BeltScanner:
         """
         self._logger.debug("BeltScanner: Start async scan.")
         belts = []
-        devices = await BleakScanner.discover(return_adv=True)
+        devices = await BleakScanner.discover(return_adv=True, timeout=2.0)
         for d in devices.values():
             self._logger.debug("BeltScanner: Device found.")
             # Check for service UUID
