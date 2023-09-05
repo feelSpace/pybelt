@@ -17,8 +17,8 @@ from pybelt._gatt_profile import *
 SERIAL_BAUDRATE = 115200
 # Baudrate for serial connection
 
-SERIAL_READ_TIMEOUT = 0.50
-# Timeout to read data on serial port
+SERIAL_READ_TIMEOUT = 0
+# Timeout to read data on serial port (0 = non-blocking mode)
 
 THREAD_JOIN_TIMEOUT_SEC = 2.0
 # Timeout to wait thread termination
@@ -200,8 +200,8 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         # Variable for packet timeout
         self._packet_start_time = time.perf_counter()
 
-        # Output lock
-        self._output_lock = threading.RLock()
+        # Input & Output lock
+        self._serial_port_lock = threading.RLock()
 
         # Python version
         self._PY3 = sys.version_info > (3,)
@@ -309,8 +309,11 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         return self._serial_port is not None
 
     def write_gatt_char(self, gatt_char, data) -> bool:
-        with self._output_lock:
+        self._wait_empty_buffer()
+        with self._serial_port_lock:
             try:
+                # TODO TBR
+                # print("Serial: in buff. {}, out buff. {}".format(self._serial_port.in_waiting, self._serial_port.out_waiting))
                 packet = bytes([gatt_char.value_attr.handle]) + bytes([len(data)]) + data
                 self._serial_port.write(packet)
             except:
@@ -318,7 +321,8 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         return True
 
     def set_gatt_notifications(self, gatt_char, enabled) -> bool:
-        with self._output_lock:
+        self._wait_empty_buffer()
+        with self._serial_port_lock:
             try:
                 if enabled:
                     packet = bytes([gatt_char.configuration_attrs[0].handle, 2, 0x01, 0x00])
@@ -329,8 +333,18 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
                 return False
         return True
 
+    def _wait_empty_buffer(self):
+        if self._serial_port is None:
+            return
+        timeout = time.perf_counter() + 0.01
+        while self._serial_port.in_waiting > 0 or self._serial_port.out_waiting:
+            time.sleep(0.0)
+            if time.perf_counter() >= timeout:
+                break
+
+
     def read_gatt_char(self, gatt_char) -> bool:
-        with self._output_lock:
+        with self._serial_port_lock:
             try:
                 packet = bytes([gatt_char.value_attr.handle, 0])
                 self._serial_port.write(packet)
@@ -352,7 +366,8 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         while not self.stop_flag:
             try:
                 # Blocking until data are received or read timeout
-                data_serial = self._serial_port.read(size=1)
+                with self._serial_port_lock:
+                    data_serial = self._serial_port.read(size=1)
                 # Convert to list of int
                 if len(data_serial) > 0:
                     in_byte = bytes([data_serial[0]])
