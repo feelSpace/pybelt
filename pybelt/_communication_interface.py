@@ -312,9 +312,11 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         self._wait_empty_buffer()
         with self._serial_port_lock:
             try:
-                # TODO TBR
-                # print("Serial: in buff. {}, out buff. {}".format(self._serial_port.in_waiting, self._serial_port.out_waiting))
-                packet = bytes([gatt_char.value_attr.handle]) + bytes([len(data)]) + data
+                if len(data) > 255:
+                    # Allow packets larger than 255 bytes (only for supported characteristics)
+                    packet = bytes([gatt_char.value_attr.handle]) + bytes([0xFF]) + data
+                else:
+                    packet = bytes([gatt_char.value_attr.handle]) + bytes([len(data)]) + data
                 self._serial_port.write(packet)
             except:
                 return False

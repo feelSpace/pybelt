@@ -942,7 +942,7 @@ class BeltController(BeltCommunicationDelegate):
         if (self._connection_state == BeltConnectionState.DISCONNECTED or
                 self._connection_state == BeltConnectionState.DISCONNECTING):
             return
-        if belt_mode < 0 or belt_mode > 8:
+        if belt_mode < 0 or belt_mode > 10:
             self.logger.error("BeltController: Illegal belt mode.")
             return
         if belt_mode == self._belt_mode:
@@ -1380,6 +1380,7 @@ class BeltMode:
     PAUSE = 4
     CALIBRATION = 5
     CROSSING = 6
+
 
 
 class BeltOrientationType:
