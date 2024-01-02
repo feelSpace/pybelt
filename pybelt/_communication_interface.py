@@ -165,6 +165,12 @@ class BeltCommunicationInterface:
         """
         pass
 
+    def get_max_packet_size(self) -> int:
+        """
+        Returns the maximum size for data packets.
+        :return: the maximum size for packets.
+        """
+
 
 class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
     """Serial port interface.
@@ -312,9 +318,9 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
         self._wait_empty_buffer()
         with self._serial_port_lock:
             try:
-                if len(data) > 255:
+                if len(data) >= 255:
                     # Allow packets larger than 255 bytes (only for supported characteristics)
-                    packet = bytes([gatt_char.value_attr.handle]) + bytes([0xFF]) + data
+                    packet = bytes([gatt_char.value_attr.handle]) + b'\xff' + data
                 else:
                     packet = bytes([gatt_char.value_attr.handle]) + bytes([len(data)]) + data
                 self._serial_port.write(packet)
@@ -356,6 +362,9 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
 
     def get_gatt_profile(self) -> NaviBeltGattProfile:
         return self._gatt_profile
+
+    def get_max_packet_size(self) -> int:
+        return 1024
 
     # --------------------------------------------------------------- #
     # Implementation of Thread methods
@@ -842,6 +851,9 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
 
     def get_gatt_profile(self) -> NaviBeltGattProfile:
         return self._gatt_profile
+
+    def get_max_packet_size(self) -> int:
+        return 244 # 244 bytes using GATT with DLE
 
     # --------------------------------------------------------------- #
     # Implementation of Thread methods

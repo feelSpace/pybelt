@@ -1332,6 +1332,7 @@ class BeltController(BeltCommunicationDelegate):
         # Check for ACK
         if (self._ack_data is not None or self._ack_char is not None) and not self._ack_event.is_set():
             if self._is_ack(gatt_char, data):
+                self.logger.log(5, "BeltController: Ack data received 0x"+data.hex())
                 self._ack_data = None
                 self._ack_char = None
                 self._ack_event.set()
