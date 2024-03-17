@@ -211,4 +211,4 @@ this configuration on the belt if you use a belt for an experiment. **If your ap
 other users than you, you must explicitly inform the user before disabling the inaccurate orientation 
 signal. The inaccurate orientation signal is important for a safe usage of the belt.**
 
-See: [examples/inaccurate_orientation_signal.py](https://github.com/feelSpace/pybelt/blob/main/examples/ inaccurate_orientation_signal.py).
+See: [examples/inaccurate_orientation_signal.py](https://github.com/feelSpace/pybelt/blob/main/examples/inaccurate_orientation_signal.py).
