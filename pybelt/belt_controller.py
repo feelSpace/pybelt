@@ -245,7 +245,7 @@ class BeltController(BeltCommunicationDelegate):
         except:
             pass
         try:
-            if not self._communication_interface.write_gatt_char(gatt_char, data):
+            if not self._communication_interface.write_gatt_char(gatt_char, data, with_response=with_response):
                 self.logger.error("BeltController: Error when sending packet.")
                 self._ack_char = None
                 self._ack_data = None
