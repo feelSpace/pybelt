@@ -129,12 +129,13 @@ class BeltCommunicationInterface:
         """
         pass
 
-    def write_gatt_char(self, gatt_char, data) -> bool:
+    def write_gatt_char(self, gatt_char, data, with_response=True) -> bool:
         """
         Writes a GATT attribute.
 
         :param GattCharacteristic gatt_char:  The characteristic to write.
         :param bytes data: The data to write.
+        :param bool with_response: 'True' for write with response, 'False' for write without response.
         :return: 'True' if successful, 'False' if not connected or a problem occurs.
         """
         pass
@@ -314,7 +315,7 @@ class SerialPortInterface(threading.Thread, BeltCommunicationInterface):
     def is_connected(self) -> bool:
         return self._serial_port is not None
 
-    def write_gatt_char(self, gatt_char, data) -> bool:
+    def write_gatt_char(self, gatt_char, data, with_response=True) -> bool:
         self._wait_empty_buffer()
         with self._serial_port_lock:
             try:
@@ -618,11 +619,12 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             success = False
         return success
 
-    async def _write_gatt_char(self, gatt_char, data) -> bool:
+    async def _write_gatt_char(self, gatt_char, data, with_response=True) -> bool:
         """
         Writes a GATT characteristic.
         :param GattCharacteristic gatt_char: The characteristic to write.
         :param bytes data: The data to write.
+        :param bool with_response: 'True' to write with response, 'False' to write without response.
         :return: 'True' if successful, 'False' otherwise.
         """
         try:
@@ -632,7 +634,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
             if not self._gatt_client.is_connected:
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
-            await self._gatt_client.write_gatt_char(gatt_char.uuid, bytearray(data), response=True)
+            await self._gatt_client.write_gatt_char(gatt_char.uuid, bytearray(data), response=with_response)
         except:
             self.logger.exception("BleInterface: Error when writing characteristic.")
             return False
@@ -802,12 +804,13 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
     def is_connected(self) -> bool:
         return self._gatt_client is not None
 
-    def write_gatt_char(self, gatt_char, data) -> bool:
+    def write_gatt_char(self, gatt_char, data, with_response=True) -> bool:
         if self._gatt_client is None:
             self.logger.error("BleInterface: No connection to write char!")
             return False
         try:
-            future = asyncio.run_coroutine_threadsafe(self._write_gatt_char(gatt_char, data), self._event_loop)
+            future = asyncio.run_coroutine_threadsafe(self._write_gatt_char(gatt_char, data, with_response),
+                                                      self._event_loop)
             success = future.result()
             if not success:
                 self.logger.error("BleInterface: Failed to write char!")

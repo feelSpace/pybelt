@@ -216,7 +216,8 @@ class BeltController(BeltCommunicationDelegate):
             raise TimeoutError("Timeout period reached when changing the belt mode.")
         return write_result == 0
 
-    def write_gatt(self, gatt_char, data, ack_char=None, ack_data=None, timeout_sec=WAIT_ACK_TIMEOUT_SEC) -> int:
+    def write_gatt(self, gatt_char, data, ack_char=None, ack_data=None, timeout_sec=WAIT_ACK_TIMEOUT_SEC,
+                   with_response=True) -> int:
         """
         Sends data to a GATT characteristic.
 
@@ -225,6 +226,7 @@ class BeltController(BeltCommunicationDelegate):
         :param GattCharacteristic ack_char: The characteristic for which an acknowledgment should be waited.
         :param bytes ack_data: The acknowledgment pattern.
         :param float timeout_sec: The timeout period in seconds.
+        :param bool with_response: 'True' to write with response, 'False' to write without response.
         :return: Returns '0' if successful, '1' when no connection is available or a problem occurs, '2' when the
         timeout is reached.
         """
