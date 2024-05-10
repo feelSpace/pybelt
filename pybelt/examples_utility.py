@@ -22,7 +22,7 @@ def belt_controller_log_to_stdout():
     logger = pybelt.logger
     logger.setLevel(logging.DEBUG)
     sh = logging.StreamHandler(sys.stdout)
-    sh_format = logging.Formatter('\033[92m %(levelname)s: %(message)s \033[0m')
+    sh_format = logging.Formatter('\033[92m %(levelname)s, %(asctime)s: %(message)s \033[0m')
     sh.setFormatter(sh_format)
     sh.setLevel(logging.DEBUG)
     logger.addHandler(sh)
