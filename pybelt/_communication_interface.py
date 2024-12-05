@@ -655,6 +655,7 @@ class BleInterface(BeltCommunicationInterface, threading.Thread):
                 self.logger.warning("BleInterface: No connection to set notifications!")
                 return False
             if enabled:
+                # TODO When called twice on the same characteristic, result in double notifications
                 await self._gatt_client.start_notify(gatt_char.uuid, self._on_notification_received)
             else:
                 await self._gatt_client.stop_notify(gatt_char.uuid)

@@ -1214,7 +1214,7 @@ class BeltController(BeltCommunicationDelegate):
     def on_gatt_char_notified(self, gatt_char, data):
 
         # TODO To be moved in diagnosis app using system handler
-        # Process packet
+        # # Process packet
         # try:
         #     self.logger.log(5, "BeltController: "+gatt_char.uuid[4:8]+" <- "+bytes_to_hexstr(data))
         # except:
