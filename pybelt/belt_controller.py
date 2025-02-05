@@ -6,6 +6,7 @@ from typing import List
 
 WAIT_ACK_TIMEOUT_SEC = 1  # Default timeout for waiting acknowledgment
 DEBUG_MESSAGE_COMPLETION_TIMEOUT = 0.5  # Timeout for waiting the completion of a debug message
+WAIT_DISCONNECTION_TIMEOUT_SEC = 10.0  # Timeout for disconnection
 
 
 class BeltController(BeltCommunicationDelegate):
@@ -38,6 +39,7 @@ class BeltController(BeltCommunicationDelegate):
         # Connection
         self._communication_interface = None
         self._last_connected_interface = None
+        self._disconnection_event = threading.Event()
 
         # Packet ack
         self._ack_char = None
@@ -118,14 +120,24 @@ class BeltController(BeltCommunicationDelegate):
         except:
             self.logger.exception("BeltController: Error when reconnecting.")
 
-    def disconnect_belt(self):
+    def disconnect_belt(self, wait=True):
         """Disconnects the belt.
+
+        In case `wait` parameter is `False`, the program should not end before complete disconnection. Disconnection
+        is notified to the delegate via `on_connection_state_changed`.
+
+        :param bool wait: 'True' to block until disconnection.
         """
+        self._disconnection_event.clear()
         if (self._connection_state == BeltConnectionState.DISCONNECTING or
                 self._connection_state == BeltConnectionState.DISCONNECTED):
             return
         self._set_connection_state(BeltConnectionState.DISCONNECTING)
         self._close_connection()
+        if wait:
+            self._disconnection_event.wait(WAIT_DISCONNECTION_TIMEOUT_SEC)
+            if self._connection_state != BeltConnectionState.DISCONNECTED:
+                self.logger.warning("BeltController: Disconnection timeout!")
 
     def get_connection_state(self) -> int:
         """Returns the connection state.
@@ -1204,6 +1216,7 @@ class BeltController(BeltCommunicationDelegate):
 
     def on_connection_closed(self, expected=True):
         self.logger.debug("BeltController: Connection closed.")
+        self._disconnection_event.set()
         if expected or self._connection_state == BeltConnectionState.DISCONNECTING:
             self._set_connection_state(BeltConnectionState.DISCONNECTED)
         else:
