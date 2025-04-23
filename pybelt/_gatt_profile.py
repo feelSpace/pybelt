@@ -78,6 +78,8 @@ class NaviBeltGattProfile:
             "0000fe05-0000-1000-8000-00805f9b34fb", GattAttribute(None), GattAttribute(None))
         self.param_notification_char = GattCharacteristic(
             "0000fe06-0000-1000-8000-00805f9b34fb", GattAttribute(None), GattAttribute(None), [GattAttribute(None)])
+        self.buzzer_led_command_char = GattCharacteristic(
+            "0000fe07-0000-1000-8000-00805f9b34fb", GattAttribute(None), GattAttribute(None))
         self.battery_status_char = GattCharacteristic(
             "0000fe09-0000-1000-8000-00805f9b34fb", GattAttribute(None), GattAttribute(None), [GattAttribute(None)])
         self.sensor_command_char = GattCharacteristic(
@@ -98,6 +100,7 @@ class NaviBeltGattProfile:
             self.button_press_char,
             self.param_request_char,
             self.param_notification_char,
+            self.buzzer_led_command_char,
             self.battery_status_char,
             self.sensor_command_char,
             self.sensor_notification_char,
@@ -183,6 +186,7 @@ def get_usb_gatt_profile() -> NaviBeltGattProfile:
         _usb_gatt_profile.set_char_handles("0000fe04-0000-1000-8000-00805f9b34fb", 37, 38, [39])
         _usb_gatt_profile.set_char_handles("0000fe05-0000-1000-8000-00805f9b34fb", 40, 41)
         _usb_gatt_profile.set_char_handles("0000fe06-0000-1000-8000-00805f9b34fb", 42, 43, [44])
+        _usb_gatt_profile.set_char_handles("0000fe07-0000-1000-8000-00805f9b34fb", 45, 46)
         _usb_gatt_profile.set_char_handles("0000fe09-0000-1000-8000-00805f9b34fb", 50, 51, [52])
         _usb_gatt_profile.set_char_handles("0000fe0a-0000-1000-8000-00805f9b34fb", 54, 55)
         _usb_gatt_profile.set_char_handles("0000fe0b-0000-1000-8000-00805f9b34fb", 56, 57, [58])

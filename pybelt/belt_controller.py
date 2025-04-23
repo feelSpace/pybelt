@@ -45,6 +45,7 @@ class BeltController(BeltCommunicationDelegate):
         self._ack_char = None
         self._ack_data = None
         self._ack_event = threading.Event()
+        self._ack_rsp = None
 
         # GATT profile
         self._gatt_profile = None
@@ -236,7 +237,7 @@ class BeltController(BeltCommunicationDelegate):
         :param GattCharacteristic gatt_char: The characteristic to write.
         :param bytes data: The data to write.
         :param GattCharacteristic ack_char: The characteristic for which an acknowledgment should be waited.
-        :param bytes ack_data: The acknowledgment pattern.
+        :param bytes|list ack_data: The acknowledgment pattern.
         :param float timeout_sec: The timeout period in seconds.
         :param bool with_response: 'True' to write with response, 'False' to write without response.
         :return: Returns '0' if successful, '1' when no connection is available or a problem occurs, '2' when the
@@ -250,6 +251,7 @@ class BeltController(BeltCommunicationDelegate):
         if ack_char is not None or ack_data is not None:
             self._ack_char = ack_char
             self._ack_data = ack_data
+            self._ack_rsp = None
             self._ack_event.clear()
         # Send packet
         try:
@@ -284,8 +286,69 @@ class BeltController(BeltCommunicationDelegate):
             # Clear ACK flag
             self._ack_char = None
             self._ack_data = None
+            self._ack_rsp = None
             self._ack_event.clear()
         return 0
+
+    def request_gatt(self, gatt_char, data, rsp_char, rsp_pattern=None, timeout_sec=WAIT_ACK_TIMEOUT_SEC,
+                   with_response=True) -> (int, bytes):
+        """
+        Sends a command and wait for a response.
+
+        :param GattCharacteristic gatt_char: The characteristic to write.
+        :param bytes data: The data to write.
+        :param GattCharacteristic rsp_char: The characteristic on which the response is received.
+        :param bytes|list rsp_pattern: The response pattern.
+        :param float timeout_sec: The timeout period in seconds.
+        :param bool with_response: 'True' to write with response, 'False' to write without response.
+        :return: Returns a tuple with a response code: '0' if successful, '1' when no connection is available or a
+        problem occurs, '2' when the timeout is reached, and the data received.
+        """
+        if (self._connection_state == BeltConnectionState.DISCONNECTED or
+                self._connection_state == BeltConnectionState.DISCONNECTING):
+            self.logger.error("BeltController: No connection to send packet.")
+            return (1, b'')
+        # Set ACK
+        self._ack_char = rsp_char
+        self._ack_data = rsp_pattern
+        self._ack_rsp = None
+        self._ack_event.clear()
+        # Send packet
+        try:
+            self.logger.log(5, "BeltController: " + gatt_char.uuid[4:8] + " -> " + bytes_to_hexstr(data))
+        except:
+            pass
+        try:
+            if not self._communication_interface.write_gatt_char(gatt_char, data, with_response=with_response):
+                self.logger.error("BeltController: Error when sending packet.")
+                self._ack_char = None
+                self._ack_data = None
+                self._ack_event.clear()
+                return (1, b'')
+        except:
+            self.logger.exception("BeltController: Error when sending packet.")
+            self._ack_char = None
+            self._ack_data = None
+            self._ack_event.clear()
+            return (1, b'')
+        # Wait ack
+        if not self._ack_event.is_set():
+            # Wait for ACK
+            self._ack_event.wait(timeout_sec)
+        if not self._ack_event.is_set():
+            # Ack not received
+            self.logger.error("BeltController: ACK not received.")
+            self._ack_char = None
+            self._ack_data = None
+            self._ack_event.clear()
+            return (2, b'')
+        # Clear ACK flag
+        rsp = self._ack_rsp
+        self._ack_char = None
+        self._ack_data = None
+        self._ack_rsp = None
+        self._ack_event.clear()
+        return (0, rsp)
 
     def read_gatt(self, gatt_char, timeout_sec=WAIT_ACK_TIMEOUT_SEC) -> int:
         """
@@ -303,6 +366,7 @@ class BeltController(BeltCommunicationDelegate):
         # Set ACK
         self._ack_char = gatt_char
         self._ack_data = None
+        self._ack_rsp = None
         self._ack_event.clear()
         # Request value
         try:
@@ -1226,13 +1290,6 @@ class BeltController(BeltCommunicationDelegate):
 
     def on_gatt_char_notified(self, gatt_char, data):
 
-        # TODO To be moved in diagnosis app using system handler
-        # # Process packet
-        # try:
-        #     self.logger.log(5, "BeltController: "+gatt_char.uuid[4:8]+" <- "+bytes_to_hexstr(data))
-        # except:
-        #     pass
-
         # Check for service discovery completed
         if self._gatt_profile is None:
             self.logger.debug("BeltController: Notification received before service discovery.")
@@ -1316,38 +1373,11 @@ class BeltController(BeltCommunicationDelegate):
             if len(data) >= 9:
                 self._notify_belt_battery(data)
 
-        # TODO To be moved in diagnosis app using system handler
-        # # Error notification
-        # if gatt_char == navibelt_debug_output_char:
-        #     if len(data) >= 5 and data[0] == 0xA0:
-        #         error_id = int.from_bytes(bytes(data[1:5]), byteorder='little', signed=False)
-        #         self.logger.error("BeltController: Belt error " + hex(error_id) + " !")
-
-        # TODO To be moved in diagnosis app using system handler
-        # # Debug message
-        # if len(self._debug_message_buffer) > 0 and \
-        #         time.perf_counter()-self._debug_message_last_received > DEBUG_MESSAGE_COMPLETION_TIMEOUT:
-        #     # Output incomplete debug message
-        #     self.logger.debug("Belt debug message: " + self._debug_message_buffer)
-        #     self._debug_message_buffer = ""
-        # if gatt_char == navibelt_debug_output_char:
-        #     if len(data) > 1 and data[0] == 0x01:
-        #         self._debug_message_buffer += decode_ascii(data[1:])
-        #         self._debug_message_last_received = time.perf_counter()
-        # # Output message ending with '\n'
-        # eol = self._debug_message_buffer.find('\n')
-        # while eol >= 0:
-        #     line = self._debug_message_buffer[:eol]
-        #     self._debug_message_buffer = self._debug_message_buffer[eol+1:]
-        #     self.logger.debug("Belt debug message: " + line)
-        #     eol = self._debug_message_buffer.find('\n')
-
-        # TODO Other notifications
-
         # Check for ACK
         if (self._ack_data is not None or self._ack_char is not None) and not self._ack_event.is_set():
             if self._is_ack(gatt_char, data):
                 self.logger.log(5, "BeltController: Ack data received 0x"+data.hex())
+                self._ack_rsp = data
                 self._ack_data = None
                 self._ack_char = None
                 self._ack_event.set()
